@@ -201,4 +201,171 @@
         });
     </script>
 </body>
+</html>            <button class="btn" style="background:#444" onclick="setDevice('mobile')">MOBILE / TOUCH</button>
+        </div>
+
+        <div class="panel hidden" id="login-panel">
+            <h2>ROOM SETUP</h2>
+            <input type="text" id="roomInput" placeholder="Room Name (e.g. ALPHA)">
+            <button class="btn" onclick="connectAndStart()">ENTER WORLD</button>
+        </div>
+    </div>
+
+    <div id="hud">
+        <div id="status">ROOM: ---</div>
+        <div id="crosshair"></div>
+    </div>
+
+    <div id="mobile-ui"><div id="stick"></div></div>
+    <div id="mobile-actions">
+        <div class="action-btn" onpointerdown="doAction('place')">BUILD</div>
+        <div class="action-btn" onpointerdown="doAction('break')" style="background:rgba(217,83,79,0.5)">BREAK</div>
+    </div>
+
+    <script>
+        let isMobile = false, peer, conn, roomID;
+        let scene, camera, renderer, raycaster;
+        let blocks = [], players = {};
+        let moveX = 0, moveZ = 0, yaw = 0, pitch = 0;
+
+        // --- STEP 1: DEVICE SELECT ---
+        function setDevice(type) {
+            isMobile = (type === 'mobile');
+            document.getElementById('device-panel').classList.add('hidden');
+            document.getElementById('login-panel').classList.remove('hidden');
+        }
+
+        // --- STEP 2: LOGIN & START ---
+        function connectAndStart() {
+            roomID = document.getElementById('roomInput').value.trim().toLowerCase() || "lobby";
+            document.getElementById('overlay-screen').classList.add('hidden');
+            document.getElementById('hud').style.display = 'block';
+            document.getElementById('status').innerText = "ROOM: " + roomID.toUpperCase();
+
+            if(isMobile) {
+                document.getElementById('mobile-ui').style.display = 'block';
+                document.getElementById('mobile-actions').style.display = 'flex';
+            } else {
+                document.body.requestPointerLock();
+            }
+
+            initGame();
+            setupNetworking();
+        }
+
+        function setupNetworking() {
+            peer = new Peer("bm-" + roomID + "-" + Math.floor(Math.random()*999));
+            peer.on('connection', c => { conn = c; listen(c); });
+            // Attempt to connect to a host if we aren't the first one
+            const c = peer.connect("bm-" + roomID);
+            if(c) { conn = c; listen(c); }
+        }
+
+        function listen(c) {
+            c.on('data', data => {
+                if(data.type === 'place') addBlock(data.pos.x, data.pos.y, data.pos.z, false);
+                if(data.type === 'break') removeBlockAt(data.pos);
+            });
+        }
+
+        // --- STEP 3: THE GAME WORLD ---
+        function initGame() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            raycaster = new THREE.Raycaster();
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
+
+            // Generate Floor
+            for(let x=-10; x<10; x++) {
+                for(let z=-10; z<10; z++) {
+                    addBlock(x, 0, z, false);
+                }
+            }
+            camera.position.set(0, 3, 5);
+            loop();
+        }
+
+        function addBlock(x, y, z, sync = true) {
+            const geo = new THREE.BoxGeometry(1, 1, 1);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x5cb85c });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(Math.round(x), Math.round(y), Math.round(z));
+            scene.add(mesh);
+            blocks.push(mesh);
+            if(sync && conn && conn.open) conn.send({type:'place', pos: mesh.position});
+        }
+
+        function removeBlockAt(pos) {
+            const block = blocks.find(b => b.position.distanceTo(pos) < 0.1);
+            if(block && block.position.y !== 0) { // Don't break floor
+                scene.remove(block);
+                blocks.splice(blocks.indexOf(block), 1);
+            }
+        }
+
+        function doAction(type) {
+            raycaster.setFromCamera({x: 0, y: 0}, camera);
+            const intersects = raycaster.intersectObjects(blocks);
+            if(intersects.length > 0) {
+                const hit = intersects[0];
+                if(type === 'place') {
+                    const p = hit.object.position.clone().add(hit.face.normal);
+                    addBlock(p.x, p.y, p.z, true);
+                } else {
+                    if(hit.object.position.y !== 0) {
+                        if(conn && conn.open) conn.send({type:'break', pos: hit.object.position});
+                        scene.remove(hit.object);
+                        blocks.splice(blocks.indexOf(hit.object), 1);
+                    }
+                }
+            }
+        }
+
+        // --- CONTROLS & LOOP ---
+        window.onmousedown = (e) => {
+            if(document.pointerLockElement === renderer.domElement) {
+                if(e.button === 0) doAction('place');
+                if(e.button === 2) doAction('break');
+            }
+        };
+
+        window.onmousemove = (e) => {
+            if(document.pointerLockElement === renderer.domElement) {
+                yaw -= e.movementX * 0.002;
+                pitch -= e.movementY * 0.002;
+                pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+            }
+        };
+
+        // Mobile Joystick
+        const stick = document.getElementById('stick');
+        document.getElementById('mobile-ui').ontouchmove = (e) => {
+            const t = e.touches[0];
+            moveX = (t.clientX - 100) / 40;
+            moveZ = (t.clientY - 100) / 40;
+            stick.style.transform = `translate(${moveX*10}px, ${moveZ*10}px)`;
+        };
+        document.getElementById('mobile-ui').ontouchend = () => { moveX=0; moveZ=0; stick.style.transform='none'; };
+
+        function loop() {
+            requestAnimationFrame(loop);
+            if(!isMobile && document.pointerLockElement === renderer.domElement) {
+                camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            }
+            // Movement (Shared)
+            const dir = new THREE.Vector3(moveX, 0, moveZ);
+            camera.position.add(dir.applyQuaternion(camera.quaternion).multiplyScalar(0.1));
+            renderer.render(scene, camera);
+        }
+
+        document.addEventListener('pointerlockchange', () => {
+            if(!isMobile && !document.pointerLockElement) document.getElementById('overlay-screen').classList.remove('hidden');
+        });
+    </script>
+</body>
 </html>
