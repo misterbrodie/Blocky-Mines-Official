@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BLOCKY MINES - Custom Room</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
+        
+        /* --- DEVICE SCREEN --- */
+        #device-screen { position: absolute; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; z-index: 200; }
+        .device-btn { width: 200px; padding: 20px; margin: 10px; border-radius: 15px; border: 2px solid #5cb85c; background: none; color: white; font-weight: bold; cursor: pointer; }
+        
+        /* --- MENU --- */
+        #menu-overlay { position: absolute; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 100; }
+        .panel { background: rgba(20,20,20,0.9); padding: 30px; border-radius: 20px; width: 300px; text-align: center; border: 1px solid #444; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: white; text-align: center; box-sizing: border-box; }
+        .btn-main { background: #5cb85c; border: none; color: white; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* --- MOBILE JOYSTICK --- */
+        #mobile-controls { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 50; display: none; }
+        #stick { position: absolute; left: 40px; top: 40px; width: 40px; height: 40px; background: white; border-radius: 50%; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="device-screen">
+        <h1>BLOCKY MINES</h1>
+        <button class="device-btn" onclick="initPlatform('pc')">PC (Mouse & Keyboard)</button>
+        <button class="device-btn" onclick="initPlatform('mobile')">MOBILE (Touch)</button>
+    </div>
+
+    <div id="menu-overlay">
+        <div class="panel">
+            <h3 id="status-text">CREATE OR JOIN ROOM</h3>
+            <input type="text" id="roomCode" placeholder="Enter Room Name (e.g. MYGAME)">
+            <button class="btn-main" onclick="startApp()">START GAME</button>
+        </div>
+    </div>
+
+    <div id="mobile-controls"><div id="stick"></div></div>
+
+    <script>
+        let isMobile = false;
+        let peer, conn, roomID;
+        let moveX = 0, moveZ = 0;
+
+        function initPlatform(type) {
+            isMobile = (type === 'mobile');
+            document.getElementById('device-screen').style.display = 'none';
+            document.getElementById('menu-overlay').style.display = 'flex';
+            if(isMobile) document.getElementById('mobile-controls').style.display = 'block';
+        }
+
+        function startApp() {
+            roomID = document.getElementById('roomCode').value || "PUBLIC";
+            peer = new Peer("blocky-" + roomID);
+            
+            peer.on('open', () => {
+                document.getElementById('status-text').innerText = "HOSTING: " + roomID;
+                document.getElementById('menu-overlay').style.display = 'none';
+                initThree();
+            });
+
+            // If someone enters a code that already exists, try to connect
+            peer.on('error', () => {
+                conn = peer.connect("blocky-" + roomID);
+                document.getElementById('menu-overlay').style.display = 'none';
+                initThree();
+            });
+        }
+
+        // --- THREE.JS ---
+        let scene, camera, renderer;
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
+            
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({color: 0x3a9d23}));
+            floor.rotation.x = -Math.PI/2; scene.add(floor);
+            
+            animate();
+        }
+
+        // --- JOYSTICK LOGIC ---
+        const stick = document.getElementById('stick');
+        document.getElementById('mobile-controls').ontouchmove = (e) => {
+            const touch = e.touches[0];
+            moveX = (touch.clientX - 100) / 50;
+            moveZ = (touch.clientY - 100) / 50;
+            stick.style.transform = `translate(${moveX*20}px, ${moveZ*20}px)`;
+        };
+        document.getElementById('mobile-controls').ontouchend = () => { moveX=0; moveZ=0; stick.style.transform = 'translate(0,0)'; };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            camera.position.x += moveX * 0.5;
+            camera.position.z += moveZ * 0.5;
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
