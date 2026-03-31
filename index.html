@@ -3,73 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blocky Mines 1.5 - Fix</title>
+    <title>Blocky Mines 1.5 - Alpha Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #332211; font-family: 'Segoe UI', sans-serif; color: white; }
-        
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; }
         #launcher {
             position: absolute; width: 100%; height: 100%;
-            background-color: #2c2c2c; display: flex; flex-direction: column; 
+            background: #332211; display: flex; flex-direction: column; 
             align-items: center; justify-content: center; z-index: 2000;
         }
-
-        .mc-logo { font-size: 50px; font-weight: 900; text-shadow: 4px 4px #000; margin-bottom: 20px; }
-        
         .mc-button {
             width: 280px; padding: 15px; background: #666; border: 3px solid #000;
             color: #EEE; font-size: 18px; cursor: pointer; margin: 8px;
             box-shadow: inset -4px -4px #333, inset 4px 4px #AAA;
-            display: block; text-align: center;
         }
-        .mc-button:active { background: #444; box-shadow: inset 4px 4px #333; }
-
         #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
         #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border-top: 2px solid white; border-left: 2px solid white; transform: translate(-50%, -50%); }
-
-        #mobile-ui { position: absolute; bottom: 20px; width: 100%; display: none; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 100; }
-        .joy-base { width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid #fff; }
-        #stick { width: 40px; height: 40px; background: #fff; border-radius: 50%; position: relative; left: 30px; top: 30px; }
+        #hotbar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px; background: rgba(0,0,0,0.5); border: 2px solid #fff; }
     </style>
 </head>
 <body>
 
     <div id="launcher">
-        <div class="mc-logo">BLOCKY MINES</div>
-        <button class="mc-button" id="pc-btn">START PC MODE</button>
-        <button class="mc-button" id="mb-btn" style="background:#555">START MOBILE MODE</button>
+        <h1 style="text-shadow: 3px 3px #000;">BLOCKY MINES <span style="color:#5cb85c">ALPHA</span></h1>
+        <button class="mc-button" onclick="start()">ENTER WORLD</button>
     </div>
 
-    <div id="hud"><div id="crosshair"></div></div>
-
-    <div id="mobile-ui">
-        <div class="joy-base" id="joy"><div id="stick"></div></div>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <button class="mc-button" style="width:100px" id="place-btn">BUILD</button>
-            <button class="mc-button" style="width:100px; background:#844" id="break-btn">BREAK</button>
-        </div>
+    <div id="hud">
+        <div id="crosshair"></div>
+        <div id="hotbar">HAND: GRASS</div>
     </div>
 
     <script>
-        let scene, camera, renderer, raycaster;
-        let blocks = [], isMobile = false, keys = {};
-        let moveX = 0, moveZ = 0, yaw = 0, pitch = 0, vY = 0;
+        let scene, camera, renderer, raycaster, clock;
+        let blocks = [], particles = [], keys = {};
+        let yaw = 0, pitch = 0, vY = 0;
 
-        // FORCE BUTTON LISTENERS
-        document.getElementById('pc-btn').addEventListener('click', () => start('pc'));
-        document.getElementById('mb-btn').addEventListener('click', () => start('mobile'));
-
-        function start(type) {
-            isMobile = (type === 'mobile');
+        function start() {
             document.getElementById('launcher').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
-            
-            if(isMobile) {
-                document.getElementById('mobile-ui').style.display = 'flex';
-            } else {
-                // PC lock needs to be triggered by a direct click
-                document.body.requestPointerLock();
-            }
+            document.body.requestPointerLock();
             init();
         }
 
@@ -77,85 +50,115 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            clock = new THREE.Clock();
+
+            renderer = new THREE.WebGLRenderer({ antialias: false }); // Pixelated look
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true; // Enable shadows
             document.body.appendChild(renderer.domElement);
-            
+
             raycaster = new THREE.Raycaster();
-            scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
+
+            // LIGHTING (Alpha Style)
+            const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+            sun.position.set(10, 20, 10);
+            sun.castShadow = true;
+            scene.add(sun);
+
+            const ambient = new THREE.AmbientLight(0x404040, 1.2); // Bright ambient like Alpha
+            scene.add(ambient);
 
             // Generate Terrain
             for(let x = -8; x <= 8; x++) {
                 for(let z = -8; z <= 8; z++) {
-                    let h = Math.round(Math.sin(x/3) * Math.cos(z/3) * 2) + 2;
+                    let h = Math.round(Math.sin(x/4) * Math.cos(z/4) * 2) + 2;
                     for(let y = 0; y <= h; y++) {
-                        const b = new THREE.Mesh(
-                            new THREE.BoxGeometry(1,1,1), 
-                            new THREE.MeshStandardMaterial({color: (y===h)?0x5cb85c:0x808080})
-                        );
-                        b.position.set(x, y, z);
-                        scene.add(b);
-                        blocks.push(b);
+                        addBlock(x, y, z, y === h ? 0x5cb85c : 0x795548);
                     }
                 }
             }
-            camera.position.set(0, 10, 5);
+
+            camera.position.set(0, 8, 5);
             animate();
         }
 
-        function doAction(type) {
+        function addBlock(x, y, z, color) {
+            const geo = new THREE.BoxGeometry(1, 1, 1);
+            const mat = new THREE.MeshStandardMaterial({ color: color });
+            const b = new THREE.Mesh(geo, mat);
+            b.position.set(x, y, z);
+            b.receiveShadow = true;
+            b.castShadow = true;
+            scene.add(b);
+            blocks.push(b);
+        }
+
+        function breakBlock(block) {
+            // Particle Effect
+            for(let i=0; i<6; i++) {
+                const pGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                const pMat = new THREE.MeshBasicMaterial({ color: block.material.color });
+                const p = new THREE.Mesh(pGeo, pMat);
+                p.position.copy(block.position);
+                p.velocity = new THREE.Vector3((Math.random()-0.5)*0.1, 0.2, (Math.random()-0.5)*0.1);
+                scene.add(p);
+                particles.push(p);
+            }
+            scene.remove(block);
+            blocks.splice(blocks.indexOf(block), 1);
+        }
+
+        function doAction(isPlace) {
             raycaster.setFromCamera({x:0, y:0}, camera);
             const hits = raycaster.intersectObjects(blocks);
             if(hits.length > 0) {
                 const hit = hits[0];
-                if(type === 'break') {
-                    if(hit.object.position.y !== 0) {
-                        scene.remove(hit.object);
-                        blocks.splice(blocks.indexOf(hit.object), 1);
-                    }
-                } else {
+                if(isPlace) {
                     const p = hit.object.position.clone().add(hit.face.normal);
-                    const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: 0x999999}));
-                    b.position.copy(p);
-                    scene.add(b);
-                    blocks.push(b);
+                    addBlock(p.x, p.y, p.z, 0x808080);
+                } else {
+                    if(hit.object.position.y !== 0) breakBlock(hit.object);
                 }
             }
         }
 
-        // INPUTS
-        window.onmousedown = (e) => { if(document.pointerLockElement) doAction(e.button === 0 ? 'break' : 'place'); };
+        // MOVEMENT ENGINE
+        window.onmousedown = (e) => { if(document.pointerLockElement) doAction(e.button !== 0); };
         window.onkeydown = (e) => keys[e.code] = true;
         window.onkeyup = (e) => keys[e.code] = false;
         window.onmousemove = (e) => {
-            if(document.pointerLockElement === renderer.domElement) {
+            if(document.pointerLockElement) {
                 yaw -= e.movementX * 0.002;
                 pitch -= e.movementY * 0.002;
                 pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         };
 
-        // Mobile Buttons
-        document.getElementById('place-btn').onpointerdown = () => doAction('place');
-        document.getElementById('break-btn').onpointerdown = () => doAction('break');
-
         function animate() {
             requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
             
-            let dx = moveX, dz = moveZ;
-            if(!isMobile) {
-                if(keys['KeyW']) dz = -0.12; if(keys['KeyS']) dz = 0.12;
-                if(keys['KeyA']) dx = -0.12; if(keys['KeyD']) dx = 0.12;
-            }
+            let dx = 0, dz = 0;
+            if(keys['KeyW']) dz = -0.15; if(keys['KeyS']) dz = 0.15;
+            if(keys['KeyA']) dx = -0.15; if(keys['KeyD']) dx = 0.15;
 
-            const vec = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
-            vec.y = 0;
-            camera.position.add(vec);
-            
-            // Basic Floor Stay
-            if(camera.position.y < 5) camera.position.y = 5;
+            const move = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
+            move.y = 0;
+            camera.position.add(move);
+
+            // Gravity
+            vY -= 0.01; camera.position.y += vY;
+            if(camera.position.y < 5) { camera.position.y = 5; vY = 0; if(keys['Space']) vY = 0.2; }
+
+            // Update Particles
+            particles.forEach((p, i) => {
+                p.position.add(p.velocity);
+                p.velocity.y -= 0.01;
+                p.scale.multiplyScalar(0.95);
+                if(p.scale.x < 0.01) { scene.remove(p); particles.splice(i, 1); }
+            });
 
             renderer.render(scene, camera);
         }
