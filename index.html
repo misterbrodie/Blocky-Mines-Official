@@ -2,163 +2,109 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BLOCKY MINES - Live Multiplayer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BLOCKY MINES - Custom Room</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        :root { --primary: #5cb85c; --bg-glass: rgba(20, 20, 20, 0.9); --border: rgba(255,255,255,0.2); }
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
         
-        /* UI LAYERS */
-        #hud { position: absolute; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; color: white; }
-        #stats { position: absolute; top: 20px; left: 20px; background: var(--bg-glass); padding: 15px; border-radius: 12px; border: 1px solid var(--border); backdrop-filter: blur(5px); }
-        #chat { position: absolute; bottom: 120px; left: 20px; width: 250px; height: 120px; background: rgba(0,0,0,0.4); padding: 10px; font-size: 12px; overflow: hidden; border-radius: 8px; display: flex; flex-direction: column-reverse; }
+        /* --- DEVICE SCREEN --- */
+        #device-screen { position: absolute; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; z-index: 200; }
+        .device-btn { width: 200px; padding: 20px; margin: 10px; border-radius: 15px; border: 2px solid #5cb85c; background: none; color: white; font-weight: bold; cursor: pointer; }
         
-        /* MENU */
-        #overlay { position: absolute; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); z-index: 100; backdrop-filter: blur(10px); }
-        .menu-card { background: #1a1a1a; padding: 40px; border-radius: 20px; text-align: center; color: white; border: 1px solid var(--border); width: 350px; }
-        input { width: 80%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; text-align: center; }
-        .btn { background: var(--primary); border: none; color: white; padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 8px; width: 100%; margin-top: 10px; font-weight: bold; }
-        .hidden { display: none !important; }
-        
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 16px; height: 16px; border: 2px solid white; transform: translate(-50%, -50%); mix-blend-mode: difference; }
+        /* --- MENU --- */
+        #menu-overlay { position: absolute; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 100; }
+        .panel { background: rgba(20,20,20,0.9); padding: 30px; border-radius: 20px; width: 300px; text-align: center; border: 1px solid #444; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: white; text-align: center; box-sizing: border-box; }
+        .btn-main { background: #5cb85c; border: none; color: white; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* --- MOBILE JOYSTICK --- */
+        #mobile-controls { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 50; display: none; }
+        #stick { position: absolute; left: 40px; top: 40px; width: 40px; height: 40px; background: white; border-radius: 50%; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <div id="hud">
-        <div id="stats">
-            <div style="color:#f0ad4e">LIVE MULTIPLAYER</div>
-            <div>My ID: <span id="my-id">Connecting...</span></div>
-            <div>Players: <span id="p-count">1</span></div>
-        </div>
-        <div id="chat"><div id="chat-inner"></div></div>
-        <div id="crosshair"></div>
+    <div id="device-screen">
+        <h1>BLOCKY MINES</h1>
+        <button class="device-btn" onclick="initPlatform('pc')">PC (Mouse & Keyboard)</button>
+        <button class="device-btn" onclick="initPlatform('mobile')">MOBILE (Touch)</button>
     </div>
 
-    <div id="overlay">
-        <div class="menu-card">
-            <h1>BLOCKY MINES</h1>
-            <p>Share your ID to host, or enter an ID to join.</p>
-            <input type="text" id="join-id-input" placeholder="Paste Friend ID Here">
-            <button class="btn" id="joinBtn">JOIN SERVER</button>
-            <hr style="margin:20px; opacity:0.2">
-            <button class="btn" id="hostBtn" style="background:#444">START AS HOST</button>
+    <div id="menu-overlay">
+        <div class="panel">
+            <h3 id="status-text">CREATE OR JOIN ROOM</h3>
+            <input type="text" id="roomCode" placeholder="Enter Room Name (e.g. MYGAME)">
+            <button class="btn-main" onclick="startApp()">START GAME</button>
         </div>
     </div>
+
+    <div id="mobile-controls"><div id="stick"></div></div>
 
     <script>
-        // --- GAME ENGINE ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-        scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 0.8));
+        let isMobile = false;
+        let peer, conn, roomID;
+        let moveX = 0, moveZ = 0;
 
-        // World
-        const blocks = [];
-        const remotePlayers = {}; // Store other players' meshes
-        const mat = new THREE.MeshStandardMaterial({ color: 0x3a9d23 });
-        for(let x=-10; x<10; x++) {
-            for(let z=-10; z<10; z++) {
-                const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat);
-                b.position.set(x, 0, z); scene.add(b); blocks.push(b);
-            }
+        function initPlatform(type) {
+            isMobile = (type === 'mobile');
+            document.getElementById('device-screen').style.display = 'none';
+            document.getElementById('menu-overlay').style.display = 'flex';
+            if(isMobile) document.getElementById('mobile-controls').style.display = 'block';
         }
 
-        // --- NETWORKING (PEERJS) ---
-        const peer = new Peer(); 
-        let conn;
+        function startApp() {
+            roomID = document.getElementById('roomCode').value || "PUBLIC";
+            peer = new Peer("blocky-" + roomID);
+            
+            peer.on('open', () => {
+                document.getElementById('status-text').innerText = "HOSTING: " + roomID;
+                document.getElementById('menu-overlay').style.display = 'none';
+                initThree();
+            });
 
-        peer.on('open', (id) => {
-            document.getElementById('my-id').innerText = id;
-            console.log("My Peer ID: " + id);
-        });
-
-        // When someone connects TO YOU (You are the Host)
-        peer.on('connection', (connection) => {
-            conn = connection;
-            setupDataListener();
-            addChatMessage("A player connected!");
-        });
-
-        // JOINING a host
-        document.getElementById('joinBtn').onclick = () => {
-            const id = document.getElementById('join-id-input').value;
-            if(id) {
-                conn = peer.connect(id);
-                setupDataListener();
-                startPlaying();
-            }
-        };
-
-        document.getElementById('hostBtn').onclick = () => startPlaying();
-
-        function setupDataListener() {
-            conn.on('data', (data) => {
-                if(data.type === 'pos') {
-                    updateRemotePlayer(data.id, data.pos);
-                }
+            // If someone enters a code that already exists, try to connect
+            peer.on('error', () => {
+                conn = peer.connect("blocky-" + roomID);
+                document.getElementById('menu-overlay').style.display = 'none';
+                initThree();
             });
         }
 
-        function updateRemotePlayer(id, pos) {
-            if(!remotePlayers[id]) {
-                const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 0.6), new THREE.MeshStandardMaterial({color: 0x3498db}));
-                scene.add(mesh);
-                remotePlayers[id] = mesh;
-                addChatMessage("New player visible.");
-            }
-            remotePlayers[id].position.set(pos.x, pos.y, pos.z);
+        // --- THREE.JS ---
+        let scene, camera, renderer;
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
+            
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({color: 0x3a9d23}));
+            floor.rotation.x = -Math.PI/2; scene.add(floor);
+            
+            animate();
         }
 
-        function addChatMessage(m) {
-            const msg = document.createElement('div');
-            msg.innerText = "[Net] " + m;
-            document.getElementById('chat-inner').appendChild(msg);
-        }
-
-        function startPlaying() {
-            renderer.domElement.requestPointerLock();
-            document.getElementById('overlay').classList.add('hidden');
-        }
-
-        // --- LOOP & MOVEMENT ---
-        camera.position.set(0, 3, 5);
-        let yaw = 0, pitch = 0, keys = {};
-        document.addEventListener('keydown', (e) => keys[e.code] = true);
-        document.addEventListener('keyup', (e) => keys[e.code] = false);
-        document.addEventListener('mousemove', (e) => {
-            if (document.pointerLockElement === renderer.domElement) {
-                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
-                pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-            }
-        });
+        // --- JOYSTICK LOGIC ---
+        const stick = document.getElementById('stick');
+        document.getElementById('mobile-controls').ontouchmove = (e) => {
+            const touch = e.touches[0];
+            moveX = (touch.clientX - 100) / 50;
+            moveZ = (touch.clientY - 100) / 50;
+            stick.style.transform = `translate(${moveX*20}px, ${moveZ*20}px)`;
+        };
+        document.getElementById('mobile-controls').ontouchend = () => { moveX=0; moveZ=0; stick.style.transform = 'translate(0,0)'; };
 
         function animate() {
             requestAnimationFrame(animate);
-            if (document.pointerLockElement === renderer.domElement) {
-                camera.rotation.set(pitch, yaw, 0, 'YXZ');
-                const move = new THREE.Vector3();
-                if(keys['KeyW']) move.z -= 1; if(keys['KeyS']) move.z += 1;
-                if(keys['KeyA']) move.x -= 1; if(keys['KeyD']) move.x += 1;
-                move.applyQuaternion(camera.quaternion); move.y = 0;
-                camera.position.add(move.normalize().multiplyScalar(0.1));
-
-                // SEND POSITION TO PEER
-                if(conn && conn.open) {
-                    conn.send({
-                        type: 'pos',
-                        id: peer.id,
-                        pos: { x: camera.position.x, y: camera.position.y - 1.5, z: camera.position.z }
-                    });
-                }
-            }
+            camera.position.x += moveX * 0.5;
+            camera.position.z += moveZ * 0.5;
             renderer.render(scene, camera);
         }
-        animate();
     </script>
 </body>
 </html>
