@@ -3,120 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BLOCKY MINES - Full Re-Add</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    <style>
-        :root { --primary: #5cb85c; --bg: #111; }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
-        
-        /* Menu System */
-        #menu-container { position: absolute; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; z-index: 1000; }
-        .panel { background: #222; padding: 30px; border-radius: 20px; border: 1px solid #444; width: 300px; text-align: center; }
-        .btn { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
-        .btn-mode { background: #444; width: 48%; display: inline-block; }
-        .active { background: #3498db !important; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #555; background: #000; color: white; text-align: center; box-sizing: border-box; }
-
-        /* Mobile HUD */
-        #mobile-ui { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; display: none; z-index: 100; pointer-events: auto; }
-        #stick { position: absolute; left: 40px; top: 40px; width: 40px; height: 40px; background: white; border-radius: 50%; }
-        #mobile-btns { position: absolute; bottom: 30px; right: 30px; display: none; z-index: 100; gap: 10px; }
-        .m-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; pointer-events: auto; }
-    </style>
+    <title>BLOCKY MINES - Terrain & Caves</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: white; touch-action: none; }
+        #menu { position: absolute; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 1000; }
+        .panel { background: #222; padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #444; }
+        .btn { width: 200px; padding: 15px; margin: 10px; border: none; border-radius: 10px; background: #5cb85c; color: white; font-weight: bold; cursor: pointer; }
+        #hud { position: absolute; top: 20px; left: 20px; pointer-events: none; display: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid white; transform: translate(-50%, -50%); mix-blend-mode: difference; pointer-events: none; }
+        /* Mobile */
+        #mobile-controls { position: absolute; bottom: 20px; width: 100%; display: none; justify-content: space-between; padding: 0 20px; box-sizing: border-box; }
+        .joy-pad { width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; position: relative; }
+        #stick { width: 40px; height: 40px; background: #fff; border-radius: 50%; position: absolute; left: 30px; top: 30px; }
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .m-btn { width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+    </style>
 </head>
 <body>
 
-    <div id="menu-container">
+    <div id="menu">
         <div class="panel">
             <h1>BLOCKY MINES</h1>
-            <div>
-                <button id="b-limit" class="btn btn-mode active" onclick="setMode('limitless')">LIMITLESS</button>
-                <button id="b-surv" class="btn btn-mode" onclick="setMode('survival')">SURVIVAL</button>
-            </div>
-            <button class="btn" onclick="start('pc')">PLAY ON PC</button>
-            <button class="btn" style="background:#666" onclick="start('mobile')">PLAY ON MOBILE</button>
-            <hr style="border:0; border-top:1px solid #444; margin:10px 0;">
-            <input type="text" id="room" placeholder="ROOM CODE (OPTIONAL)">
+            <button class="btn" onclick="start('pc')">PC MODE</button><br>
+            <button class="btn" style="background:#666" onclick="start('mobile')">MOBILE MODE</button>
         </div>
     </div>
 
-    <div id="mobile-ui"><div id="stick"></div></div>
-    <div id="mobile-btns">
-        <div class="m-btn" onpointerdown="doJump()">JUMP</div>
+    <div id="hud">MODE: CREATIVE</div>
+    <div id="crosshair"></div>
+
+    <div id="mobile-controls">
+        <div class="joy-pad" id="joy"><div id="stick"></div></div>
+        <div class="action-grid">
+            <div class="m-btn" onpointerdown="doAction('place')">PLACE</div>
+            <div class="m-btn" onpointerdown="doAction('break')" style="background:rgba(255,0,0,0.3)">BREAK</div>
+            <div class="m-btn" onpointerdown="vY=0.2">JUMP</div>
+        </div>
     </div>
 
     <script>
-        let scene, camera, renderer, isMobile = false, mode = 'limitless';
+        let scene, camera, renderer, raycaster;
+        let blocks = [], isMobile = false, keys = {};
         let moveX = 0, moveZ = 0, yaw = 0, pitch = 0, vY = 0;
-        let keys = {}, peer, conn;
-
-        function setMode(m) {
-            mode = m;
-            document.getElementById('b-limit').classList.toggle('active', m === 'limitless');
-            document.getElementById('b-surv').classList.toggle('active', m === 'survival');
-        }
 
         function start(device) {
             isMobile = (device === 'mobile');
-            const roomCode = document.getElementById('room').value.trim().toLowerCase();
-            document.getElementById('menu-container').style.display = 'none';
-            if(isMobile) {
-                document.getElementById('mobile-ui').style.display = 'block';
-                document.getElementById('mobile-btns').style.display = 'flex';
-            } else {
-                renderer.domElement.requestPointerLock();
-            }
-            if(roomCode) initNet(roomCode);
-            initGame();
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+            if(isMobile) document.getElementById('mobile-controls').style.display = 'flex';
+            else document.body.requestPointerLock();
+            init();
         }
 
-        function initNet(room) {
-            const myId = "bm-" + room + "-" + Math.floor(Math.random()*999);
-            peer = new Peer(myId);
-            peer.on('open', () => {
-                const c = peer.connect("bm-" + room);
-                if(c) setupConn(c);
-            });
-            peer.on('connection', setupConn);
-        }
-
-        function setupConn(c) {
-            conn = c;
-            conn.on('data', data => {
-                if(data.type === 'move') updateRemote(data.id, data.pos);
-            });
-        }
-
-        function initGame() {
+        function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
-
+            
+            raycaster = new THREE.Raycaster();
             scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(100,100), new THREE.MeshStandardMaterial({color: 0x5cb85c}));
-            floor.rotation.x = -Math.PI/2;
-            scene.add(floor);
 
-            camera.position.set(0, 2, 5);
+            // TERRAIN GENERATION (Hills & Caves)
+            for(let x = -10; x < 10; x++) {
+                for(let z = -10; z < 10; z++) {
+                    // Simple hill noise
+                    let h = Math.round(Math.sin(x/3) * Math.cos(z/3) * 2) + 2;
+                    for(let y = 0; y <= h; y++) {
+                        // Cave check: random chance to skip a block if it's underground
+                        if(y > 0 && y < h && Math.random() < 0.1) continue; 
+                        
+                        createBlock(x, y, z, y === h ? 0x5cb85c : 0x808080);
+                    }
+                }
+            }
+
+            camera.position.set(0, 10, 5);
             loop();
         }
 
-        // Joystick
-        const joy = document.getElementById('mobile-ui');
-        const stick = document.getElementById('stick');
-        joy.addEventListener('touchmove', e => {
-            const r = joy.getBoundingClientRect();
-            moveX = (e.touches[0].clientX - (r.left + 60)) / 40;
-            moveZ = (e.touches[0].clientY - (r.top + 60)) / 40;
-            stick.style.transform = `translate(${moveX*15}px, ${moveZ*15}px)`;
-        });
-        joy.addEventListener('touchend', () => { moveX=0; moveZ=0; stick.style.transform='none'; });
-        function doJump() { if(vY === 0) vY = 0.2; }
+        function createBlock(x, y, z, color) {
+            const b = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 1, 1),
+                new THREE.MeshStandardMaterial({ color: color })
+            );
+            b.position.set(x, y, z);
+            scene.add(b);
+            blocks.push(b);
+        }
 
+        function doAction(type) {
+            raycaster.setFromCamera({x: 0, y: 0}, camera);
+            const hits = raycaster.intersectObjects(blocks);
+            if(hits.length > 0) {
+                const hit = hits[0];
+                if(type === 'break') {
+                    if(hit.object.position.y !== 0) { // Don't break bedrock
+                        scene.remove(hit.object);
+                        blocks.splice(blocks.indexOf(hit.object), 1);
+                    }
+                } else {
+                    const p = hit.object.position.clone().add(hit.face.normal);
+                    createBlock(p.x, p.y, p.z, 0x3498db);
+                }
+            }
+        }
+
+        // --- INPUTS ---
+        window.onmousedown = (e) => { 
+            if(document.pointerLockElement) doAction(e.button === 0 ? 'break' : 'place'); 
+        };
         window.onkeydown = e => keys[e.code] = true;
         window.onkeyup = e => keys[e.code] = false;
         window.onmousemove = e => {
@@ -127,35 +126,38 @@
             }
         };
 
+        // Mobile Joystick
+        const joy = document.getElementById('joy');
+        const stick = document.getElementById('stick');
+        joy.ontouchmove = (e) => {
+            const r = joy.getBoundingClientRect();
+            moveX = (e.touches[0].clientX - (r.left + 50)) / 25;
+            moveZ = (e.touches[0].clientY - (r.top + 50)) / 25;
+            stick.style.transform = `translate(${moveX*10}px, ${moveZ*10}px)`;
+        };
+        joy.ontouchend = () => { moveX=0; moveZ=0; stick.style.transform='none'; };
+
         function loop() {
             requestAnimationFrame(loop);
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
             
-            let dx = moveX, dz = moveZ;
+            let dx = moveX * 0.1, dz = moveZ * 0.1;
             if(!isMobile) {
                 if(keys['KeyW']) dz = -0.15; if(keys['KeyS']) dz = 0.15;
                 if(keys['KeyA']) dx = -0.15; if(keys['KeyD']) dx = 0.15;
+                if(keys['Space']) vY = 0.2;
             }
 
             const vec = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
             vec.y = 0;
             camera.position.add(vec);
+            
+            // Basic Physics
+            vY -= 0.01; camera.position.y += vY;
+            if(camera.position.y < 5) { camera.position.y = 5; vY = 0; }
 
-            if(mode === 'survival') {
-                vY -= 0.01; camera.position.y += vY;
-                if(camera.position.y < 2) { camera.position.y = 2; vY = 0; if(keys['Space']) vY = 0.2; }
-            } else {
-                if(keys['Space']) camera.position.y += 0.1;
-                if(keys['ShiftLeft']) camera.position.y -= 0.1;
-            }
-
-            if(conn && conn.open) conn.send({type:'move', id: peer.id, pos: camera.position});
             renderer.render(scene, camera);
         }
-
-        document.addEventListener('pointerlockchange', () => {
-            if(!isMobile && !document.pointerLockElement) document.getElementById('menu-container').style.display = 'flex';
-        });
     </script>
 </body>
 </html>
