@@ -1,92 +1,161 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BLOCKY MINES RESET</title>
+    <title>BLOCKY MINES - Full Re-Add</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
-        #overlay { position: absolute; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); z-index: 100; color: white; text-align: center; }
-        #ui { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.5); padding: 10px; pointer-events: none; }
-        .btn { padding: 15px 30px; background: #5cb85c; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 5px; font-size: 20px; }
+        :root { --primary: #5cb85c; --bg: #111; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
+        
+        /* Menu System */
+        #menu-container { position: absolute; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; z-index: 1000; }
+        .panel { background: #222; padding: 30px; border-radius: 20px; border: 1px solid #444; width: 300px; text-align: center; }
+        .btn { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-mode { background: #444; width: 48%; display: inline-block; }
+        .active { background: #3498db !important; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #555; background: #000; color: white; text-align: center; box-sizing: border-box; }
+
+        /* Mobile HUD */
+        #mobile-ui { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; display: none; z-index: 100; pointer-events: auto; }
+        #stick { position: absolute; left: 40px; top: 40px; width: 40px; height: 40px; background: white; border-radius: 50%; }
+        #mobile-btns { position: absolute; bottom: 30px; right: 30px; display: none; z-index: 100; gap: 10px; }
+        .m-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; pointer-events: auto; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <div id="ui">WASD to Move | Click to Start</div>
-
-    <div id="overlay" onclick="start()">
-        <div>
+    <div id="menu-container">
+        <div class="panel">
             <h1>BLOCKY MINES</h1>
-            <button class="btn">CLICK TO PLAY</button>
+            <div>
+                <button id="b-limit" class="btn btn-mode active" onclick="setMode('limitless')">LIMITLESS</button>
+                <button id="b-surv" class="btn btn-mode" onclick="setMode('survival')">SURVIVAL</button>
+            </div>
+            <button class="btn" onclick="start('pc')">PLAY ON PC</button>
+            <button class="btn" style="background:#666" onclick="start('mobile')">PLAY ON MOBILE</button>
+            <hr style="border:0; border-top:1px solid #444; margin:10px 0;">
+            <input type="text" id="room" placeholder="ROOM CODE (OPTIONAL)">
         </div>
     </div>
 
-    <script>
-        let scene, camera, renderer, controlsActive = false;
-        let move = { f: 0, b: 0, l: 0, r: 0 };
-        let yaw = 0, pitch = 0;
+    <div id="mobile-ui"><div id="stick"></div></div>
+    <div id="mobile-btns">
+        <div class="m-btn" onpointerdown="doJump()">JUMP</div>
+    </div>
 
-        function start() {
-            document.getElementById('overlay').style.display = 'none';
-            renderer.domElement.requestPointerLock();
-            controlsActive = true;
+    <script>
+        let scene, camera, renderer, isMobile = false, mode = 'limitless';
+        let moveX = 0, moveZ = 0, yaw = 0, pitch = 0, vY = 0;
+        let keys = {}, peer, conn;
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('b-limit').classList.toggle('active', m === 'limitless');
+            document.getElementById('b-surv').classList.toggle('active', m === 'survival');
         }
 
-        // Initialize Scene
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        function start(device) {
+            isMobile = (device === 'mobile');
+            const roomCode = document.getElementById('room').value.trim().toLowerCase();
+            document.getElementById('menu-container').style.display = 'none';
+            if(isMobile) {
+                document.getElementById('mobile-ui').style.display = 'block';
+                document.getElementById('mobile-btns').style.display = 'flex';
+            } else {
+                renderer.domElement.requestPointerLock();
+            }
+            if(roomCode) initNet(roomCode);
+            initGame();
+        }
 
-        // Lights & Floor
-        scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
-        const floor = new THREE.Mesh(
-            new THREE.BoxGeometry(50, 1, 50), 
-            new THREE.MeshStandardMaterial({ color: 0x5cb85c })
-        );
-        floor.position.y = -0.5;
-        scene.add(floor);
+        function initNet(room) {
+            const myId = "bm-" + room + "-" + Math.floor(Math.random()*999);
+            peer = new Peer(myId);
+            peer.on('open', () => {
+                const c = peer.connect("bm-" + room);
+                if(c) setupConn(c);
+            });
+            peer.on('connection', setupConn);
+        }
 
-        // Add a "Test Block" so you can see movement
-        const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({color: 0xff0000}));
-        box.position.set(0, 0.5, -5);
-        scene.add(box);
+        function setupConn(c) {
+            conn = c;
+            conn.on('data', data => {
+                if(data.type === 'move') updateRemote(data.id, data.pos);
+            });
+        }
 
-        camera.position.set(0, 1.6, 5);
+        function initGame() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
 
-        // Input Handling
-        window.onkeydown = (e) => {
-            if(e.code === 'KeyW') move.f = 1; if(e.code === 'KeyS') move.b = 1;
-            if(e.code === 'KeyA') move.l = 1; if(e.code === 'KeyD') move.r = 1;
-        };
-        window.onkeyup = (e) => {
-            if(e.code === 'KeyW') move.f = 0; if(e.code === 'KeyS') move.b = 0;
-            if(e.code === 'KeyA') move.l = 0; if(e.code === 'KeyD') move.r = 0;
-        };
-        window.onmousemove = (e) => {
-            if (document.pointerLockElement === renderer.domElement) {
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(100,100), new THREE.MeshStandardMaterial({color: 0x5cb85c}));
+            floor.rotation.x = -Math.PI/2;
+            scene.add(floor);
+
+            camera.position.set(0, 2, 5);
+            loop();
+        }
+
+        // Joystick
+        const joy = document.getElementById('mobile-ui');
+        const stick = document.getElementById('stick');
+        joy.addEventListener('touchmove', e => {
+            const r = joy.getBoundingClientRect();
+            moveX = (e.touches[0].clientX - (r.left + 60)) / 40;
+            moveZ = (e.touches[0].clientY - (r.top + 60)) / 40;
+            stick.style.transform = `translate(${moveX*15}px, ${moveZ*15}px)`;
+        });
+        joy.addEventListener('touchend', () => { moveX=0; moveZ=0; stick.style.transform='none'; });
+        function doJump() { if(vY === 0) vY = 0.2; }
+
+        window.onkeydown = e => keys[e.code] = true;
+        window.onkeyup = e => keys[e.code] = false;
+        window.onmousemove = e => {
+            if(document.pointerLockElement === renderer.domElement) {
                 yaw -= e.movementX * 0.002;
                 pitch -= e.movementY * 0.002;
                 pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         };
 
-        function animate() {
-            requestAnimationFrame(animate);
-            if (document.pointerLockElement === renderer.domElement) {
-                camera.rotation.set(pitch, yaw, 0, 'YXZ');
-                const dir = new THREE.Vector3(move.r - move.l, 0, move.b - move.f);
-                dir.applyQuaternion(camera.quaternion);
-                dir.y = 0;
-                camera.position.add(dir.normalize().multiplyScalar(0.1));
+        function loop() {
+            requestAnimationFrame(loop);
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            
+            let dx = moveX, dz = moveZ;
+            if(!isMobile) {
+                if(keys['KeyW']) dz = -0.15; if(keys['KeyS']) dz = 0.15;
+                if(keys['KeyA']) dx = -0.15; if(keys['KeyD']) dx = 0.15;
             }
+
+            const vec = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
+            vec.y = 0;
+            camera.position.add(vec);
+
+            if(mode === 'survival') {
+                vY -= 0.01; camera.position.y += vY;
+                if(camera.position.y < 2) { camera.position.y = 2; vY = 0; if(keys['Space']) vY = 0.2; }
+            } else {
+                if(keys['Space']) camera.position.y += 0.1;
+                if(keys['ShiftLeft']) camera.position.y -= 0.1;
+            }
+
+            if(conn && conn.open) conn.send({type:'move', id: peer.id, pos: camera.position});
             renderer.render(scene, camera);
         }
-        animate();
+
+        document.addEventListener('pointerlockchange', () => {
+            if(!isMobile && !document.pointerLockElement) document.getElementById('menu-container').style.display = 'flex';
+        });
     </script>
 </body>
 </html>
