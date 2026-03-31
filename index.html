@@ -3,108 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BLOCKY MINES - Custom Room</title>
+    <title>BLOCKY MINES - Fixed & Working</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
         
-        /* --- DEVICE SCREEN --- */
-        #device-screen { position: absolute; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; z-index: 200; }
-        .device-btn { width: 200px; padding: 20px; margin: 10px; border-radius: 15px; border: 2px solid #5cb85c; background: none; color: white; font-weight: bold; cursor: pointer; }
-        
-        /* --- MENU --- */
-        #menu-overlay { position: absolute; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); z-index: 100; }
-        .panel { background: rgba(20,20,20,0.9); padding: 30px; border-radius: 20px; width: 300px; text-align: center; border: 1px solid #444; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #444; background: #000; color: white; text-align: center; box-sizing: border-box; }
-        .btn-main { background: #5cb85c; border: none; color: white; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        /* Device & Login Layers */
+        #overlay-screen { position: absolute; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; z-index: 500; }
+        .panel { background: #222; padding: 30px; border-radius: 20px; border: 1px solid #444; width: 300px; text-align: center; }
+        .btn { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: none; background: #5cb85c; color: white; font-weight: bold; cursor: pointer; font-size: 16px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #555; background: #000; color: white; text-align: center; box-sizing: border-box; }
 
-        /* --- MOBILE JOYSTICK --- */
-        #mobile-controls { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 50; display: none; }
+        /* HUD */
+        #hud { position: absolute; top: 20px; left: 20px; z-index: 10; display: none; pointer-events: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 15px; height: 15px; border: 2px solid white; transform: translate(-50%, -50%); mix-blend-mode: difference; }
+
+        /* Mobile Controls */
+        #mobile-ui { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; display: none; z-index: 100; }
         #stick { position: absolute; left: 40px; top: 40px; width: 40px; height: 40px; background: white; border-radius: 50%; }
+        #mobile-actions { position: absolute; bottom: 40px; right: 40px; display: none; flex-direction: column; gap: 10px; z-index: 100; }
+        .action-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; pointer-events: auto; }
+
+        .hidden { display: none !important; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <div id="device-screen">
-        <h1>BLOCKY MINES</h1>
-        <button class="device-btn" onclick="initPlatform('pc')">PC (Mouse & Keyboard)</button>
-        <button class="device-btn" onclick="initPlatform('mobile')">MOBILE (Touch)</button>
-    </div>
+    <div id="overlay-screen">
+        <div class="panel" id="device-panel">
+            <h1>BLOCKY MINES</h1>
+            <button class="btn" onclick="setDevice('pc')">PC / LAPTOP</button>
+            <button class="btn" style="background:#444" onclick="setDevice('mobile')">MOBILE / TOUCH</button>
+        </div>
 
-    <div id="menu-overlay">
-        <div class="panel">
-            <h3 id="status-text">CREATE OR JOIN ROOM</h3>
-            <input type="text" id="roomCode" placeholder="Enter Room Name (e.g. MYGAME)">
-            <button class="btn-main" onclick="startApp()">START GAME</button>
+        <div class="panel hidden" id="login-panel">
+            <h2>ROOM SETUP</h2>
+            <input type="text" id="roomInput" placeholder="Room Name (e.g. ALPHA)">
+            <button class="btn" onclick="connectAndStart()">ENTER WORLD</button>
         </div>
     </div>
 
-    <div id="mobile-controls"><div id="stick"></div></div>
+    <div id="hud">
+        <div id="status">ROOM: ---</div>
+        <div id="crosshair"></div>
+    </div>
+
+    <div id="mobile-ui"><div id="stick"></div></div>
+    <div id="mobile-actions">
+        <div class="action-btn" onpointerdown="doAction('place')">BUILD</div>
+        <div class="action-btn" onpointerdown="doAction('break')" style="background:rgba(217,83,79,0.5)">BREAK</div>
+    </div>
 
     <script>
-        let isMobile = false;
-        let peer, conn, roomID;
-        let moveX = 0, moveZ = 0;
+        let isMobile = false, peer, conn, roomID;
+        let scene, camera, renderer, raycaster;
+        let blocks = [], players = {};
+        let moveX = 0, moveZ = 0, yaw = 0, pitch = 0;
 
-        function initPlatform(type) {
+        // --- STEP 1: DEVICE SELECT ---
+        function setDevice(type) {
             isMobile = (type === 'mobile');
-            document.getElementById('device-screen').style.display = 'none';
-            document.getElementById('menu-overlay').style.display = 'flex';
-            if(isMobile) document.getElementById('mobile-controls').style.display = 'block';
+            document.getElementById('device-panel').classList.add('hidden');
+            document.getElementById('login-panel').classList.remove('hidden');
         }
 
-        function startApp() {
-            roomID = document.getElementById('roomCode').value || "PUBLIC";
-            peer = new Peer("blocky-" + roomID);
-            
-            peer.on('open', () => {
-                document.getElementById('status-text').innerText = "HOSTING: " + roomID;
-                document.getElementById('menu-overlay').style.display = 'none';
-                initThree();
-            });
+        // --- STEP 2: LOGIN & START ---
+        function connectAndStart() {
+            roomID = document.getElementById('roomInput').value.trim().toLowerCase() || "lobby";
+            document.getElementById('overlay-screen').classList.add('hidden');
+            document.getElementById('hud').style.display = 'block';
+            document.getElementById('status').innerText = "ROOM: " + roomID.toUpperCase();
 
-            // If someone enters a code that already exists, try to connect
-            peer.on('error', () => {
-                conn = peer.connect("blocky-" + roomID);
-                document.getElementById('menu-overlay').style.display = 'none';
-                initThree();
+            if(isMobile) {
+                document.getElementById('mobile-ui').style.display = 'block';
+                document.getElementById('mobile-actions').style.display = 'flex';
+            } else {
+                document.body.requestPointerLock();
+            }
+
+            initGame();
+            setupNetworking();
+        }
+
+        function setupNetworking() {
+            peer = new Peer("bm-" + roomID + "-" + Math.floor(Math.random()*999));
+            peer.on('connection', c => { conn = c; listen(c); });
+            // Attempt to connect to a host if we aren't the first one
+            const c = peer.connect("bm-" + roomID);
+            if(c) { conn = c; listen(c); }
+        }
+
+        function listen(c) {
+            c.on('data', data => {
+                if(data.type === 'place') addBlock(data.pos.x, data.pos.y, data.pos.z, false);
+                if(data.type === 'break') removeBlockAt(data.pos);
             });
         }
 
-        // --- THREE.JS ---
-        let scene, camera, renderer;
-        function initThree() {
+        // --- STEP 3: THE GAME WORLD ---
+        function initGame() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
+
+            raycaster = new THREE.Raycaster();
             scene.add(new THREE.HemisphereLight(0xffffff, 0x444422, 1));
-            
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({color: 0x3a9d23}));
-            floor.rotation.x = -Math.PI/2; scene.add(floor);
-            
-            animate();
+
+            // Generate Floor
+            for(let x=-10; x<10; x++) {
+                for(let z=-10; z<10; z++) {
+                    addBlock(x, 0, z, false);
+                }
+            }
+            camera.position.set(0, 3, 5);
+            loop();
         }
 
-        // --- JOYSTICK LOGIC ---
-        const stick = document.getElementById('stick');
-        document.getElementById('mobile-controls').ontouchmove = (e) => {
-            const touch = e.touches[0];
-            moveX = (touch.clientX - 100) / 50;
-            moveZ = (touch.clientY - 100) / 50;
-            stick.style.transform = `translate(${moveX*20}px, ${moveZ*20}px)`;
-        };
-        document.getElementById('mobile-controls').ontouchend = () => { moveX=0; moveZ=0; stick.style.transform = 'translate(0,0)'; };
+        function addBlock(x, y, z, sync = true) {
+            const geo = new THREE.BoxGeometry(1, 1, 1);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x5cb85c });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(Math.round(x), Math.round(y), Math.round(z));
+            scene.add(mesh);
+            blocks.push(mesh);
+            if(sync && conn && conn.open) conn.send({type:'place', pos: mesh.position});
+        }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            camera.position.x += moveX * 0.5;
-            camera.position.z += moveZ * 0.5;
+        function removeBlockAt(pos) {
+            const block = blocks.find(b => b.position.distanceTo(pos) < 0.1);
+            if(block && block.position.y !== 0) { // Don't break floor
+                scene.remove(block);
+                blocks.splice(blocks.indexOf(block), 1);
+            }
+        }
+
+        function doAction(type) {
+            raycaster.setFromCamera({x: 0, y: 0}, camera);
+            const intersects = raycaster.intersectObjects(blocks);
+            if(intersects.length > 0) {
+                const hit = intersects[0];
+                if(type === 'place') {
+                    const p = hit.object.position.clone().add(hit.face.normal);
+                    addBlock(p.x, p.y, p.z, true);
+                } else {
+                    if(hit.object.position.y !== 0) {
+                        if(conn && conn.open) conn.send({type:'break', pos: hit.object.position});
+                        scene.remove(hit.object);
+                        blocks.splice(blocks.indexOf(hit.object), 1);
+                    }
+                }
+            }
+        }
+
+        // --- CONTROLS & LOOP ---
+        window.onmousedown = (e) => {
+            if(document.pointerLockElement === renderer.domElement) {
+                if(e.button === 0) doAction('place');
+                if(e.button === 2) doAction('break');
+            }
+        };
+
+        window.onmousemove = (e) => {
+            if(document.pointerLockElement === renderer.domElement) {
+                yaw -= e.movementX * 0.002;
+                pitch -= e.movementY * 0.002;
+                pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+            }
+        };
+
+        // Mobile Joystick
+        const stick = document.getElementById('stick');
+        document.getElementById('mobile-ui').ontouchmove = (e) => {
+            const t = e.touches[0];
+            moveX = (t.clientX - 100) / 40;
+            moveZ = (t.clientY - 100) / 40;
+            stick.style.transform = `translate(${moveX*10}px, ${moveZ*10}px)`;
+        };
+        document.getElementById('mobile-ui').ontouchend = () => { moveX=0; moveZ=0; stick.style.transform='none'; };
+
+        function loop() {
+            requestAnimationFrame(loop);
+            if(!isMobile && document.pointerLockElement === renderer.domElement) {
+                camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            }
+            // Movement (Shared)
+            const dir = new THREE.Vector3(moveX, 0, moveZ);
+            camera.position.add(dir.applyQuaternion(camera.quaternion).multiplyScalar(0.1));
             renderer.render(scene, camera);
         }
+
+        document.addEventListener('pointerlockchange', () => {
+            if(!isMobile && !document.pointerLockElement) document.getElementById('overlay-screen').classList.remove('hidden');
+        });
     </script>
 </body>
 </html>
