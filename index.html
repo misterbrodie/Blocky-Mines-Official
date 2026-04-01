@@ -8,78 +8,79 @@
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; touch-action: none; }
         
-        /* MODERN MENU WITH MC VIBE */
-        #launcher {
+        /* OVERLAY SYSTEM */
+        .overlay {
             position: absolute; width: 100%; height: 100%;
-            background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('https://www.transparenttextures.com/patterns/dark-matter.png'), #3d3d3d;
-            display: flex; align-items: center; justify-content: center; z-index: 5000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 5000; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
         }
+        
         .window {
-            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-            width: 320px; padding: 40px; border-radius: 20px; border: 2px solid rgba(255,255,255,0.2);
-            text-align: center; color: white;
+            background: #c6c6c6; border: 4px solid #000; padding: 30px;
+            box-shadow: inset -4px -4px #555, inset 4px 4px #fff; text-align: center;
         }
+
         .mc-btn {
-            width: 100%; padding: 16px; margin: 12px 0; border: 2px solid #000; 
+            width: 260px; padding: 14px; margin: 10px 0; border: 2px solid #000;
             background: #666; color: white; font-weight: bold; cursor: pointer;
-            box-shadow: inset -4px -4px #333, inset 4px 4px #AAA;
+            box-shadow: inset -3px -3px #333, inset 3px 3px #AAA;
         }
         .mc-btn:hover { background: #7a7a7a; border-color: #fff; }
 
-        /* MINECRAFT HUD */
-        #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; }
-        .hotbar {
-            display: flex; background: rgba(0,0,0,0.5); border: 4px solid #888;
-            padding: 2px; gap: 4px;
-        }
-        .slot {
-            width: 40px; height: 40px; border: 4px solid #444; 
-            background-size: cover; image-rendering: pixelated;
-        }
-        .active-slot { border-color: #fff; box-shadow: 0 0 10px #fff; }
-
-        #crosshair { 
-            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; 
-            transform: translate(-50%, -50%); color: white; font-size: 24px; 
-            pointer-events: none; mix-blend-mode: difference;
-        }
+        /* HUD */
+        #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; pointer-events: none; }
+        .hotbar { display: flex; background: rgba(0,0,0,0.5); border: 3px solid #888; padding: 3px; gap: 5px; }
+        .slot { width: 40px; height: 40px; border: 3px solid #444; }
+        .active { border-color: #fff; box-shadow: 0 0 10px #fff; }
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; pointer-events: none; mix-blend-mode: difference; }
     </style>
 </head>
 <body>
 
-    <div id="launcher">
+    <div id="main-menu" class="overlay">
+        <div class="window" style="background: transparent; border: none; box-shadow: none;">
+            <h1 style="color: white; text-shadow: 4px 4px #000; font-size: 40px;">BLOCKY MINES</h1>
+            <button class="mc-btn" onclick="boot('pc')">START PC</button>
+            <button class="mc-btn" onclick="boot('mobile')">START MOBILE</button>
+        </div>
+    </div>
+
+    <div id="pause-menu" class="overlay" style="display: none;">
         <div class="window">
-            <h1 style="text-shadow: 3px 3px #000; letter-spacing: 2px;">BLOCKY MINES</h1>
-            <button class="mc-btn" onclick="startApp('pc')">SINGLEPLAYER (PC)</button>
-            <button class="mc-btn" onclick="startApp('mobile')">MOBILE MODE</button>
+            <h2 style="color: #333; margin-top: 0;">GAME PAUSED</h2>
+            <button class="mc-btn" onclick="resume()">BACK TO GAME</button>
+            <button class="mc-btn" onclick="location.reload()">SAVE & QUIT</button>
         </div>
     </div>
 
     <div id="crosshair">+</div>
-
     <div id="hud">
         <div class="hotbar">
-            <div class="slot active-slot" id="slot0" style="background-color: #5cb85c;"></div>
-            <div class="slot" id="slot1" style="background-color: #808080;"></div>
-            <div class="slot" id="slot2" style="background-color: #795548;"></div>
-            <div class="slot" id="slot3" style="background-color: #3b82f6;"></div>
-            <div class="slot" id="slot4" style="background-color: #f1c40f;"></div>
+            <div class="slot active" id="s0" style="background: #5cb85c;"></div>
+            <div class="slot" id="s1" style="background: #808080;"></div>
+            <div class="slot" id="s2" style="background: #795548;"></div>
+            <div class="slot" id="s3" style="background: #f1c40f;"></div>
         </div>
     </div>
 
     <script>
-        let scene, camera, renderer, raycaster;
-        let blocks = [], keys = {}, isMobile = false;
-        let yaw = 0, pitch = 0, vY = 0;
-        let selectedBlock = 0;
-        const colors = [0x5cb85c, 0x808080, 0x795548, 0x3b82f6, 0xf1c40f];
+        let scene, camera, renderer, raycaster, isPaused = true, isMobile = false;
+        let blocks = [], keys = {}, yaw = 0, pitch = 0, vY = 0, selected = 0;
+        const palette = [0x5cb85c, 0x808080, 0x795548, 0xf1c40f];
 
-        function startApp(mode) {
+        function boot(mode) {
             isMobile = (mode === 'mobile');
-            document.getElementById('launcher').style.display = 'none';
-            document.getElementById('hud').style.display = 'flex';
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
             if(!isMobile) document.body.requestPointerLock();
-            init();
+            if(!scene) init();
+            isPaused = false;
+        }
+
+        function resume() {
+            document.getElementById('pause-menu').style.display = 'none';
+            if(!isMobile) document.body.requestPointerLock();
+            isPaused = false;
         }
 
         function init() {
@@ -87,45 +88,57 @@
             scene.background = new THREE.Color(0x87CEEB);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             
-            renderer = new THREE.WebGLRenderer({ antialias: false }); // Pixelated edges
+            renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true; // SHADOWS ENABLED
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
             
             raycaster = new THREE.Raycaster();
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-            // World Generation (Cubic)
-            for(let x = -12; x <= 12; x++) {
-                for(let z = -12; z <= 12; z++) {
-                    let h = Math.round(Math.sin(x/6) * Math.cos(z/6) * 3) + 2;
+            // LIGHTING FOR SHADOWS
+            const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+            sun.position.set(10, 20, 10);
+            sun.castShadow = true;
+            // High quality shadow settings
+            sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
+            sun.shadow.camera.top = 20; sun.shadow.camera.bottom = -20;
+            scene.add(sun);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+            // Generate Terrain
+            for(let x = -10; x <= 10; x++) {
+                for(let z = -10; z <= 10; z++) {
+                    let h = Math.round(Math.sin(x/5) * 2) + 2;
                     for(let y = 0; y <= h; y++) {
-                        createBlock(x, y, z, y === h ? 0x5cb85c : 0x795548);
+                        addBlock(x, y, z, y === h ? 0x5cb85c : 0x795548);
                     }
                 }
             }
-            camera.position.set(0, 10, 5);
-            update();
+            camera.position.set(0, 8, 5);
+            loop();
         }
 
-        function createBlock(x, y, z, col) {
+        function addBlock(x, y, z, col) {
             const b = new THREE.Mesh(
                 new THREE.BoxGeometry(1, 1, 1), 
-                new THREE.MeshStandardMaterial({ color: col, roughness: 1 })
+                new THREE.MeshStandardMaterial({ color: col })
             );
             b.position.set(x, y, z);
+            b.castShadow = true;   // CASTS SHADOW
+            b.receiveShadow = true; // RECEIVES SHADOW
             scene.add(b);
             blocks.push(b);
         }
 
-        // Action: Place/Break
-        function handleAction(isPlace) {
+        function interact(isPlace) {
             raycaster.setFromCamera({x: 0, y: 0}, camera);
             const hits = raycaster.intersectObjects(blocks);
             if(hits.length > 0) {
                 const hit = hits[0];
                 if(isPlace) {
                     const p = hit.object.position.clone().add(hit.face.normal);
-                    createBlock(p.x, p.y, p.z, colors[selectedBlock]);
+                    addBlock(p.x, p.y, p.z, palette[selected]);
                 } else if(hit.object.position.y !== 0) {
                     scene.remove(hit.object);
                     blocks.splice(blocks.indexOf(hit.object), 1);
@@ -133,29 +146,34 @@
             }
         }
 
-        // PC Scroll to change items
-        window.onwheel = (e) => {
-            document.getElementById('slot'+selectedBlock).classList.remove('active-slot');
-            selectedBlock = (e.deltaY > 0) ? (selectedBlock + 1) % 5 : (selectedBlock - 1 + 5) % 5;
-            document.getElementById('slot'+selectedBlock).classList.add('active-slot');
+        // INPUT LISTENERS
+        window.onmousedown = (e) => { if(!isPaused) interact(e.button !== 0); };
+        window.onkeydown = (e) => { 
+            keys[e.code] = true;
+            if(e.code === 'Escape') isPaused = true;
         };
-
-        window.onmousedown = (e) => { if(document.pointerLockElement) handleAction(e.button !== 0); };
-        window.onkeydown = e => keys[e.code] = true;
-        window.onkeyup = e => keys[e.code] = false;
-        
+        window.onkeyup = (e) => keys[e.code] = false;
         window.onmousemove = (e) => {
-            if(document.pointerLockElement) {
+            if(!isPaused && (document.pointerLockElement || isMobile)) {
                 yaw -= e.movementX * 0.002;
                 pitch -= e.movementY * 0.002;
                 pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         };
 
-        function update() {
-            requestAnimationFrame(update);
+        // PAUSE LOGIC
+        document.addEventListener('pointerlockchange', () => {
+            if(!document.pointerLockElement && !isMobile && document.getElementById('main-menu').style.display === 'none') {
+                isPaused = true;
+                document.getElementById('pause-menu').style.display = 'flex';
+            }
+        });
+
+        function loop() {
+            requestAnimationFrame(loop);
+            if(isPaused) return;
+
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
-            
             let dx = 0, dz = 0;
             if(keys['KeyW']) dz = -0.15; if(keys['KeyS']) dz = 0.15;
             if(keys['KeyA']) dx = -0.15; if(keys['KeyD']) dx = 0.15;
@@ -163,7 +181,6 @@
             const dir = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
             dir.y = 0; camera.position.add(dir);
             
-            // Gravity
             vY -= 0.008; camera.position.y += vY;
             if(camera.position.y < 5) { camera.position.y = 5; vY = 0; if(keys['Space']) vY = 0.18; }
 
