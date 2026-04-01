@@ -6,31 +6,31 @@
     <title>Blocky Mines 1.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; user-select: none; }
         
-        /* OVERLAY SYSTEM */
+        /* OVERLAYS */
         .overlay {
             position: absolute; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 5000; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
         }
+        .window { background: #c6c6c6; border: 4px solid #000; padding: 30px; text-align: center; box-shadow: inset -4px -4px #555, inset 4px 4px #fff; }
+        .mc-btn { width: 240px; padding: 14px; margin: 10px 0; border: 2px solid #000; background: #666; color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #AAA; }
+
+        /* MOBILE HUD & BUTTONS */
+        #mobile-pause { position: absolute; top: 15px; left: 15px; width: 50px; height: 50px; background: rgba(0,0,0,0.4); border: 2px solid white; color: white; display: none; align-items: center; justify-content: center; font-weight: bold; z-index: 1000; border-radius: 8px; cursor: pointer; }
+        #mobile-controls { position: absolute; bottom: 30px; width: 100%; display: none; justify-content: space-between; padding: 0 30px; box-sizing: border-box; z-index: 1000; pointer-events: none; }
+        #mobile-controls * { pointer-events: auto; }
         
-        .window {
-            background: #c6c6c6; border: 4px solid #000; padding: 30px;
-            box-shadow: inset -4px -4px #555, inset 4px 4px #fff; text-align: center;
-        }
+        .joy-base { width: 110px; height: 110px; background: rgba(255,255,255,0.1); border: 2px solid white; border-radius: 50%; position: relative; }
+        #stick { width: 40px; height: 40px; background: white; border-radius: 50%; position: absolute; left: 35px; top: 35px; }
+        
+        .action-btns { display: flex; flex-direction: column; gap: 15px; }
+        .act-btn { width: 75px; height: 75px; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; }
 
-        .mc-btn {
-            width: 260px; padding: 14px; margin: 10px 0; border: 2px solid #000;
-            background: #666; color: white; font-weight: bold; cursor: pointer;
-            box-shadow: inset -3px -3px #333, inset 3px 3px #AAA;
-        }
-        .mc-btn:hover { background: #7a7a7a; border-color: #fff; }
-
-        /* HUD */
-        #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; pointer-events: none; }
-        .hotbar { display: flex; background: rgba(0,0,0,0.5); border: 3px solid #888; padding: 3px; gap: 5px; }
-        .slot { width: 40px; height: 40px; border: 3px solid #444; }
+        #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; }
+        .hotbar { display: flex; background: rgba(0,0,0,0.5); border: 3px solid #888; padding: 3px; }
+        .slot { width: 40px; height: 40px; border: 3px solid #444; margin: 0 2px; }
         .active { border-color: #fff; box-shadow: 0 0 10px #fff; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; pointer-events: none; mix-blend-mode: difference; }
     </style>
@@ -38,152 +38,132 @@
 <body>
 
     <div id="main-menu" class="overlay">
-        <div class="window" style="background: transparent; border: none; box-shadow: none;">
-            <h1 style="color: white; text-shadow: 4px 4px #000; font-size: 40px;">BLOCKY MINES</h1>
-            <button class="mc-btn" onclick="boot('pc')">START PC</button>
-            <button class="mc-btn" onclick="boot('mobile')">START MOBILE</button>
-        </div>
+        <h1 style="color: white; text-shadow: 4px 4px #000;">BLOCKY MINES</h1>
+        <button class="mc-btn" onclick="boot('pc')">PLAY PC</button>
+        <button class="mc-btn" style="background:#444" onclick="boot('mobile')">PLAY MOBILE</button>
     </div>
 
     <div id="pause-menu" class="overlay" style="display: none;">
         <div class="window">
-            <h2 style="color: #333; margin-top: 0;">GAME PAUSED</h2>
-            <button class="mc-btn" onclick="resume()">BACK TO GAME</button>
-            <button class="mc-btn" onclick="location.reload()">SAVE & QUIT</button>
+            <h2>GAME PAUSED</h2>
+            <button class="mc-btn" onclick="resume()">RESUME</button>
+            <button class="mc-btn" onclick="location.reload()">QUIT</button>
         </div>
     </div>
 
+    <div id="mobile-pause" onclick="pauseGame()">||</div>
     <div id="crosshair">+</div>
-    <div id="hud">
-        <div class="hotbar">
-            <div class="slot active" id="s0" style="background: #5cb85c;"></div>
-            <div class="slot" id="s1" style="background: #808080;"></div>
-            <div class="slot" id="s2" style="background: #795548;"></div>
-            <div class="slot" id="s3" style="background: #f1c40f;"></div>
+
+    <div id="mobile-controls">
+        <div class="joy-base" id="joy"><div id="stick"></div></div>
+        <div class="action-btns">
+            <div class="act-btn" onpointerdown="interact(true)">BUILD</div>
+            <div class="act-btn" onpointerdown="interact(false)" style="background:rgba(255,0,0,0.2)">BREAK</div>
+            <div class="act-btn" onpointerdown="vY=0.18">JUMP</div>
         </div>
+    </div>
+
+    <div id="hud">
+        <div class="hotbar"><div class="slot active" id="s0" style="background:#5cb85c"></div><div class="slot" id="s1" style="background:#808080"></div><div class="slot" id="s2" style="background:#795548"></div></div>
     </div>
 
     <script>
         let scene, camera, renderer, raycaster, isPaused = true, isMobile = false;
-        let blocks = [], keys = {}, yaw = 0, pitch = 0, vY = 0, selected = 0;
-        const palette = [0x5cb85c, 0x808080, 0x795548, 0xf1c40f];
+        let blocks = [], keys = {}, yaw = 0, pitch = 0, vY = 0, moveX = 0, moveZ = 0;
 
         function boot(mode) {
             isMobile = (mode === 'mobile');
             document.getElementById('main-menu').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
-            if(!isMobile) document.body.requestPointerLock();
+            if(isMobile) {
+                document.getElementById('mobile-controls').style.display = 'flex';
+                document.getElementById('mobile-pause').style.display = 'flex';
+            } else {
+                document.body.requestPointerLock();
+            }
             if(!scene) init();
             isPaused = false;
         }
 
-        function resume() {
-            document.getElementById('pause-menu').style.display = 'none';
+        function pauseGame() { isPaused = true; document.getElementById('pause-menu').style.display = 'flex'; }
+        function resume() { 
+            document.getElementById('pause-menu').style.display = 'none'; 
             if(!isMobile) document.body.requestPointerLock();
-            isPaused = false;
+            isPaused = false; 
         }
 
         function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB);
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            
             renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true; // SHADOWS ENABLED
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
             
-            raycaster = new THREE.Raycaster();
-
-            // LIGHTING FOR SHADOWS
             const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-            sun.position.set(10, 20, 10);
-            sun.castShadow = true;
-            // High quality shadow settings
-            sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
-            sun.shadow.camera.top = 20; sun.shadow.camera.bottom = -20;
-            scene.add(sun);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            sun.position.set(10, 25, 10); sun.castShadow = true;
+            scene.add(sun); scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-            // Generate Terrain
-            for(let x = -10; x <= 10; x++) {
-                for(let z = -10; z <= 10; z++) {
-                    let h = Math.round(Math.sin(x/5) * 2) + 2;
-                    for(let y = 0; y <= h; y++) {
-                        addBlock(x, y, z, y === h ? 0x5cb85c : 0x795548);
+            for(let x=-8; x<=8; x++) {
+                for(let z=-8; z<=8; z++) {
+                    let h = Math.round(Math.sin(x/4) * 2) + 2;
+                    for(let y=0; y<=h; y++) {
+                        const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: (y===h)?0x5cb85c:0x795548}));
+                        b.position.set(x,y,z); b.castShadow = b.receiveShadow = true;
+                        scene.add(b); blocks.push(b);
                     }
                 }
             }
-            camera.position.set(0, 8, 5);
+            camera.position.set(0, 10, 5); raycaster = new THREE.Raycaster();
             loop();
         }
 
-        function addBlock(x, y, z, col) {
-            const b = new THREE.Mesh(
-                new THREE.BoxGeometry(1, 1, 1), 
-                new THREE.MeshStandardMaterial({ color: col })
-            );
-            b.position.set(x, y, z);
-            b.castShadow = true;   // CASTS SHADOW
-            b.receiveShadow = true; // RECEIVES SHADOW
-            scene.add(b);
-            blocks.push(b);
-        }
-
         function interact(isPlace) {
-            raycaster.setFromCamera({x: 0, y: 0}, camera);
+            raycaster.setFromCamera({x:0, y:0}, camera);
             const hits = raycaster.intersectObjects(blocks);
             if(hits.length > 0) {
-                const hit = hits[0];
+                const h = hits[0];
                 if(isPlace) {
-                    const p = hit.object.position.clone().add(hit.face.normal);
-                    addBlock(p.x, p.y, p.z, palette[selected]);
-                } else if(hit.object.position.y !== 0) {
-                    scene.remove(hit.object);
-                    blocks.splice(blocks.indexOf(hit.object), 1);
+                    const p = h.object.position.clone().add(h.face.normal);
+                    const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: 0x808080}));
+                    b.position.copy(p); b.castShadow = b.receiveShadow = true;
+                    scene.add(b); blocks.push(b);
+                } else if(h.object.position.y !== 0) {
+                    scene.remove(h.object); blocks.splice(blocks.indexOf(h.object), 1);
                 }
             }
         }
 
-        // INPUT LISTENERS
-        window.onmousedown = (e) => { if(!isPaused) interact(e.button !== 0); };
-        window.onkeydown = (e) => { 
-            keys[e.code] = true;
-            if(e.code === 'Escape') isPaused = true;
-        };
-        window.onkeyup = (e) => keys[e.code] = false;
-        window.onmousemove = (e) => {
-            if(!isPaused && (document.pointerLockElement || isMobile)) {
-                yaw -= e.movementX * 0.002;
-                pitch -= e.movementY * 0.002;
-                pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-            }
-        };
+        // INPUTS
+        window.onmousemove = e => { if(!isPaused && (document.pointerLockElement || isMobile)) { yaw -= e.movementX*0.002; pitch -= e.movementY*0.002; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch)); } };
+        window.onmousedown = e => { if(!isPaused && !isMobile) interact(e.button !== 0); };
+        window.onkeydown = e => { keys[e.code] = true; if(e.code === 'Escape') pauseGame(); };
+        window.onkeyup = e => keys[e.code] = false;
 
-        // PAUSE LOGIC
-        document.addEventListener('pointerlockchange', () => {
-            if(!document.pointerLockElement && !isMobile && document.getElementById('main-menu').style.display === 'none') {
-                isPaused = true;
-                document.getElementById('pause-menu').style.display = 'flex';
-            }
+        const joy = document.getElementById('joy');
+        joy.addEventListener('touchmove', e => {
+            const r = joy.getBoundingClientRect();
+            moveX = (e.touches[0].clientX - (r.left + 55)) / 40;
+            moveZ = (e.touches[0].clientY - (r.top + 55)) / 40;
+            document.getElementById('stick').style.transform = `translate(${moveX*15}px, ${moveZ*15}px)`;
         });
+        joy.addEventListener('touchend', () => { moveX=0; moveZ=0; document.getElementById('stick').style.transform='none'; });
 
         function loop() {
             requestAnimationFrame(loop);
             if(isPaused) return;
-
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
-            let dx = 0, dz = 0;
-            if(keys['KeyW']) dz = -0.15; if(keys['KeyS']) dz = 0.15;
-            if(keys['KeyA']) dx = -0.15; if(keys['KeyD']) dx = 0.15;
-
-            const dir = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
-            dir.y = 0; camera.position.add(dir);
             
+            let dx = moveX * 0.12, dz = moveZ * 0.12;
+            if(!isMobile) {
+                if(keys['KeyW']) dz = -0.15; if(keys['KeyS']) dz = 0.15;
+                if(keys['KeyA']) dx = -0.15; if(keys['KeyD']) dx = 0.15;
+            }
+
+            const vec = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
+            vec.y = 0; camera.position.add(vec);
             vY -= 0.008; camera.position.y += vY;
             if(camera.position.y < 5) { camera.position.y = 5; vY = 0; if(keys['Space']) vY = 0.18; }
-
             renderer.render(scene, camera);
         }
     </script>
