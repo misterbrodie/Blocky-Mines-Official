@@ -3,100 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blocky Mines 1.5 - Unified</title>
+    <title>Blocky Mines - Solid Build</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; user-select: none; }
+        body { margin: 0; overflow: hidden; background: #222; font-family: 'Courier New', monospace; touch-action: none; user-select: none; color: white; }
+        .overlay { position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); }
+        .window { background: #c6c6c6; border: 4px solid #000; padding: 25px; text-align: center; box-shadow: inset -4px -4px #555, inset 4px 4px #fff; width: 320px; color: #333; }
+        .mc-btn { width: 100%; padding: 12px; margin: 6px 0; border: 2px solid #000; background: #666; color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #AAA; font-family: inherit; }
+        .active-opt { background: #5cb85c !important; border-color: #fff; }
         
-        /* OVERLAYS */
-        .overlay {
-            position: absolute; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 5000; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
-        }
-        .window { background: #c6c6c6; border: 4px solid #000; padding: 30px; text-align: center; box-shadow: inset -4px -4px #555, inset 4px 4px #fff; }
-        .mc-btn { width: 220px; padding: 12px; margin: 8px 0; border: 2px solid #000; background: #666; color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #AAA; }
+        #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; z-index: 1001; }
+        .hotbar { display: flex; background: rgba(0,0,0,0.5); border: 3px solid #888; padding: 3px; }
+        .slot { width: 45px; height: 45px; border: 3px solid #444; margin: 0 3px; cursor: pointer; }
+        .active { border-color: #fff; box-shadow: 0 0 15px #fff; }
 
-        /* HUD ELEMENTS */
-        #pause-btn { position: absolute; top: 15px; left: 15px; width: 45px; height: 45px; background: rgba(0,0,0,0.4); border: 2px solid white; color: white; display: none; align-items: center; justify-content: center; font-weight: bold; z-index: 1000; cursor: pointer; border-radius: 4px; }
-        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; pointer-events: none; mix-blend-mode: difference; z-index: 1000; }
-
-        /* MOBILE CONTROLS */
+        #mobile-pause { position: absolute; top: 15px; left: 15px; width: 45px; height: 45px; background: rgba(0,0,0,0.4); border: 2px solid white; color: white; display: none; align-items: center; justify-content: center; z-index: 1000; border-radius: 4px; }
         #mobile-controls { position: absolute; bottom: 120px; width: 100%; display: none; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 1000; pointer-events: none; }
         .joy-base { width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid white; border-radius: 50%; position: relative; pointer-events: auto; }
         #stick { width: 35px; height: 35px; background: white; border-radius: 50%; position: absolute; left: 32px; top: 32px; pointer-events: none; }
         .action-btns { display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
-        .act-btn { width: 65px; height: 65px; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; }
-
-        /* HOTBAR (CLICKABLE) */
-        #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; z-index: 1001; }
-        .hotbar { display: flex; background: rgba(0,0,0,0.5); border: 3px solid #888; padding: 3px; pointer-events: auto; }
-        .slot { width: 45px; height: 45px; border: 3px solid #444; margin: 0 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .active { border-color: #fff; box-shadow: 0 0 15px #fff; }
+        .act-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="main-menu" class="overlay">
-        <h1 style="color: white; text-shadow: 4px 4px #000;">BLOCKY MINES</h1>
-        <button class="mc-btn" onclick="boot('pc')">PLAY PC</button>
-        <button class="mc-btn" style="background:#444" onclick="boot('mobile')">PLAY MOBILE</button>
+        <h1 style="text-shadow: 4px 4px #000; font-size: 36px;">BLOCKY MINES</h1>
+        <div class="window">
+            <button class="mc-btn" onclick="showCreate(true)">CREATE WORLD</button>
+            <button class="mc-btn" onclick="location.reload()">RELOAD</button>
+        </div>
+    </div>
+
+    <div id="create-menu" class="overlay" style="display: none;">
+        <div class="window">
+            <h2>GAME MODE</h2>
+            <div style="display:flex; gap:5px;">
+                <button id="mode-surv" class="mc-btn active-opt" onclick="setGameMode('survival')">SURVIVAL</button>
+                <button id="mode-limit" class="mc-btn" onclick="setGameMode('limitless')">LIMITLESS</button>
+            </div>
+            <button class="mc-btn" style="background:#5cb85c" onclick="bootGame('pc')">PLAY PC</button>
+            <button class="mc-btn" style="background:#5cb85c" onclick="bootGame('mobile')">PLAY MOBILE</button>
+            <button class="mc-btn" style="background:#888" onclick="showCreate(false)">BACK</button>
+        </div>
     </div>
 
     <div id="pause-menu" class="overlay" style="display: none;">
         <div class="window">
-            <h2>GAME PAUSED</h2>
+            <h2>PAUSED</h2>
             <button class="mc-btn" onclick="resume()">RESUME</button>
             <button class="mc-btn" onclick="location.reload()">QUIT</button>
         </div>
     </div>
 
-    <div id="pause-btn" onclick="pauseGame()">||</div>
-    <div id="crosshair">+</div>
+    <div id="mobile-pause" onclick="pauseGame()">||</div>
+    <div id="hud">
+        <div class="hotbar">
+            <div class="slot active" id="s0" style="background:#5cb85c" onclick="selectSlot(0)"></div>
+            <div class="slot" id="s1" style="background:#808080" onclick="selectSlot(1)"></div>
+            <div class="slot" id="s2" style="background:#795548" onclick="selectSlot(2)"></div>
+        </div>
+    </div>
 
     <div id="mobile-controls">
         <div class="joy-base" id="joy"><div id="stick"></div></div>
         <div class="action-btns">
             <div class="act-btn" onpointerdown="interact(true)">BUILD</div>
-            <div class="act-btn" onpointerdown="interact(false)" style="background:rgba(255,0,0,0.3)">BREAK</div>
-            <div class="act-btn" onpointerdown="vY=0.18">JUMP</div>
-        </div>
-    </div>
-
-    <div id="hud">
-        <div class="hotbar">
-            <div class="slot active" onclick="selectSlot(0)" id="s0" style="background:#5cb85c"></div>
-            <div class="slot" onclick="selectSlot(1)" id="s1" style="background:#808080"></div>
-            <div class="slot" onclick="selectSlot(2)" id="s2" style="background:#795548"></div>
-            <div class="slot" onclick="selectSlot(3)" id="s3" style="background:#f1c40f"></div>
+            <div class="act-btn" style="background:rgba(255,0,0,0.3)" onpointerdown="interact(false)">BREAK</div>
+            <div class="act-btn" onpointerdown="doJump()">JUMP</div>
         </div>
     </div>
 
     <script>
-        let scene, camera, renderer, raycaster, isPaused = true, isMobile = false;
-        let blocks = [], keys = {}, yaw = 0, pitch = 0, vY = 0, moveX = 0, moveZ = 0;
-        let selected = 0;
-        const palette = [0x5cb85c, 0x808080, 0x795548, 0xf1c40f];
+        let scene, camera, renderer, raycaster, blocks = [], keys = {};
+        let isPaused = true, isMobile = false, gameMode = 'survival';
+        let yaw = 0, pitch = 0, vY = 0, moveX = 0, moveZ = 0, selected = 0;
+        const palette = [0x5cb85c, 0x808080, 0x795548];
 
-        function boot(mode) {
-            isMobile = (mode === 'mobile');
+        function showCreate(show) { document.getElementById('create-menu').style.display = show ? 'flex' : 'none'; }
+        function setGameMode(m) {
+            gameMode = m;
+            document.getElementById('mode-surv').classList.toggle('active-opt', m === 'survival');
+            document.getElementById('mode-limit').classList.toggle('active-opt', m === 'limitless');
+        }
+
+        function bootGame(device) {
+            isMobile = (device === 'mobile');
             document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('create-menu').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
-            document.getElementById('pause-btn').style.display = 'flex';
+            document.getElementById('mobile-pause').style.display = 'flex';
             if(isMobile) document.getElementById('mobile-controls').style.display = 'flex';
             else document.body.requestPointerLock();
-            if(!scene) init();
+            init();
             isPaused = false;
         }
 
         function pauseGame() { isPaused = true; document.getElementById('pause-menu').style.display = 'flex'; document.exitPointerLock(); }
         function resume() { document.getElementById('pause-menu').style.display = 'none'; if(!isMobile) document.body.requestPointerLock(); isPaused = false; }
-
-        function selectSlot(i) {
-            document.querySelectorAll('.slot').forEach(s => s.classList.remove('active'));
-            document.getElementById('s' + i).classList.add('active');
-            selected = i;
-        }
+        function selectSlot(i) { document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active')); document.getElementById('s'+i).classList.add('active'); selected=i; }
 
         function init() {
             scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
@@ -112,16 +117,22 @@
 
             for(let x=-8; x<=8; x++) {
                 for(let z=-8; z<=8; z++) {
-                    let h = Math.round(Math.sin(x/4) * 2) + 2;
-                    for(let y=0; y<=h; y++) {
-                        const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: (y===h)?0x5cb85c:0x795548}));
-                        b.position.set(x,y,z); b.castShadow = b.receiveShadow = true;
-                        scene.add(b); blocks.push(b);
-                    }
+                    const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: 0x5cb85c}));
+                    b.position.set(x,2,z); b.castShadow = b.receiveShadow = true;
+                    scene.add(b); blocks.push(b);
                 }
             }
-            camera.position.set(0, 10, 5); raycaster = new THREE.Raycaster();
+            camera.position.set(0, 5, 5); raycaster = new THREE.Raycaster();
             loop();
+        }
+
+        function checkCollision(pos) {
+            for(let b of blocks) {
+                if(Math.abs(pos.x - b.position.x) < 0.7 && 
+                   Math.abs(pos.y - b.position.y) < 1.2 && 
+                   Math.abs(pos.z - b.position.z) < 0.7) return true;
+            }
+            return false;
         }
 
         function interact(isPlace) {
@@ -134,43 +145,44 @@
                     const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: palette[selected]}));
                     b.position.copy(p); b.castShadow = b.receiveShadow = true;
                     scene.add(b); blocks.push(b);
-                } else if(h.object.position.y !== 0) {
+                } else if(h.object.position.y !== 2) {
                     scene.remove(h.object); blocks.splice(blocks.indexOf(h.object), 1);
                 }
             }
         }
 
-        // UNIFIED LOOK/DRAG CONTROL
+        function doJump() { if(vY === 0) vY = 0.18; }
+
         window.addEventListener('mousemove', e => {
             if(!isPaused && document.pointerLockElement) {
-                yaw -= e.movementX * 0.002;
-                pitch -= e.movementY * 0.002;
+                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
                 pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         });
 
-        // MOBILE TOUCH TO LOOK
-        let lastTouchX = 0, lastTouchY = 0;
-        window.addEventListener('touchmove', e => {
-            if(isPaused) return;
-            const touch = e.touches[0];
-            // Only drag to look if touching right side of screen
-            if(touch.clientX > window.innerWidth / 2) {
-                if(lastTouchX !== 0) {
-                    yaw -= (touch.clientX - lastTouchX) * 0.005;
-                    pitch -= (touch.clientY - lastTouchY) * 0.005;
-                    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-                }
-                lastTouchX = touch.clientX; lastTouchY = touch.clientY;
+        let tData = {};
+        window.addEventListener('touchstart', e => { 
+            for(let t of e.changedTouches) {
+                if(t.target.tagName === 'CANVAS') tData[t.identifier] = {x:t.clientX, y:t.clientY};
             }
         });
-        window.addEventListener('touchend', () => { lastTouchX = 0; lastTouchY = 0; });
+        window.addEventListener('touchmove', e => {
+            if(isPaused) return;
+            for(let t of e.changedTouches) {
+                if(tData[t.identifier]) {
+                    yaw -= (t.clientX - tData[t.identifier].x) * 0.005;
+                    pitch -= (t.clientY - tData[t.identifier].y) * 0.005;
+                    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+                    tData[t.identifier] = {x:t.clientX, y:t.clientY};
+                }
+            }
+        });
+        window.addEventListener('touchend', e => { for(let t of e.changedTouches) delete tData[t.identifier]; });
 
         window.onmousedown = e => { if(!isPaused && !isMobile) interact(e.button !== 0); };
         window.onkeydown = e => { keys[e.code] = true; if(e.code === 'Escape') pauseGame(); };
         window.onkeyup = e => keys[e.code] = false;
 
-        // JOYSTICK
         const joy = document.getElementById('joy');
         joy.addEventListener('touchmove', e => {
             const r = joy.getBoundingClientRect();
@@ -184,15 +196,37 @@
             requestAnimationFrame(loop);
             if(isPaused) return;
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            
             let dx = moveX * 0.12, dz = moveZ * 0.12;
             if(!isMobile) {
                 if(keys['KeyW']) dz = -0.15; if(keys['KeyS']) dz = 0.15;
                 if(keys['KeyA']) dx = -0.15; if(keys['KeyD']) dx = 0.15;
             }
+
             const vec = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
-            vec.y = 0; camera.position.add(vec);
-            vY -= 0.008; camera.position.y += vY;
-            if(camera.position.y < 5) { camera.position.y = 5; vY = 0; if(keys['Space']) vY = 0.18; }
+            vec.y = 0; 
+            
+            // Wall Collision Check
+            let nextPos = camera.position.clone().add(vec);
+            if(!checkCollision(nextPos)) camera.position.add(vec);
+
+            // Gravity & Vertical Collision
+            if(gameMode === 'survival') {
+                vY -= 0.008; 
+            } else {
+                if(keys['Space']) vY = 0.15; else if(keys['ShiftLeft']) vY = -0.15; else vY *= 0.9;
+            }
+
+            let nextV = camera.position.clone(); nextV.y += vY;
+            if(!checkCollision(nextV)) {
+                camera.position.y += vY;
+            } else {
+                vY = 0;
+            }
+
+            // Floor Clamp
+            if(camera.position.y < 4) camera.position.y = 4;
+
             renderer.render(scene, camera);
         }
     </script>
