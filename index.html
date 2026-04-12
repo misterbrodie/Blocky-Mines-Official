@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blocky Mines - Solid Build</title>
+    <title>Blocky Mines - Textures</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; font-family: 'Courier New', monospace; touch-action: none; user-select: none; color: white; }
+        body { margin: 0; overflow: hidden; background: #222; font-family: 'Courier New', monospace; touch-action: none; user-select: none; }
         .overlay { position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); }
         .window { background: #c6c6c6; border: 4px solid #000; padding: 25px; text-align: center; box-shadow: inset -4px -4px #555, inset 4px 4px #fff; width: 320px; color: #333; }
-        .mc-btn { width: 100%; padding: 12px; margin: 6px 0; border: 2px solid #000; background: #666; color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #AAA; font-family: inherit; }
-        .active-opt { background: #5cb85c !important; border-color: #fff; }
+        .mc-btn { width: 100%; padding: 12px; margin: 6px 0; border: 2px solid #000; background: #666; color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #AAA; }
         
         #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; z-index: 1001; }
         .hotbar { display: flex; background: rgba(0,0,0,0.5); border: 3px solid #888; padding: 3px; }
-        .slot { width: 45px; height: 45px; border: 3px solid #444; margin: 0 3px; cursor: pointer; }
+        .slot { width: 45px; height: 45px; border: 3px solid #444; margin: 0 3px; cursor: pointer; background-size: cover; image-rendering: pixelated; }
         .active { border-color: #fff; box-shadow: 0 0 15px #fff; }
 
-        #mobile-pause { position: absolute; top: 15px; left: 15px; width: 45px; height: 45px; background: rgba(0,0,0,0.4); border: 2px solid white; color: white; display: none; align-items: center; justify-content: center; z-index: 1000; border-radius: 4px; }
         #mobile-controls { position: absolute; bottom: 120px; width: 100%; display: none; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 1000; pointer-events: none; }
         .joy-base { width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid white; border-radius: 50%; position: relative; pointer-events: auto; }
         #stick { width: 35px; height: 35px; background: white; border-radius: 50%; position: absolute; left: 32px; top: 32px; pointer-events: none; }
@@ -28,40 +26,18 @@
 <body>
 
     <div id="main-menu" class="overlay">
-        <h1 style="text-shadow: 4px 4px #000; font-size: 36px;">BLOCKY MINES</h1>
+        <h1 style="color:white; text-shadow: 4px 4px #000;">BLOCKY MINES</h1>
         <div class="window">
-            <button class="mc-btn" onclick="showCreate(true)">CREATE WORLD</button>
-            <button class="mc-btn" onclick="location.reload()">RELOAD</button>
+            <button class="mc-btn" onclick="bootGame('pc')">PLAY PC</button>
+            <button class="mc-btn" onclick="bootGame('mobile')">PLAY MOBILE</button>
         </div>
     </div>
 
-    <div id="create-menu" class="overlay" style="display: none;">
-        <div class="window">
-            <h2>GAME MODE</h2>
-            <div style="display:flex; gap:5px;">
-                <button id="mode-surv" class="mc-btn active-opt" onclick="setGameMode('survival')">SURVIVAL</button>
-                <button id="mode-limit" class="mc-btn" onclick="setGameMode('limitless')">LIMITLESS</button>
-            </div>
-            <button class="mc-btn" style="background:#5cb85c" onclick="bootGame('pc')">PLAY PC</button>
-            <button class="mc-btn" style="background:#5cb85c" onclick="bootGame('mobile')">PLAY MOBILE</button>
-            <button class="mc-btn" style="background:#888" onclick="showCreate(false)">BACK</button>
-        </div>
-    </div>
-
-    <div id="pause-menu" class="overlay" style="display: none;">
-        <div class="window">
-            <h2>PAUSED</h2>
-            <button class="mc-btn" onclick="resume()">RESUME</button>
-            <button class="mc-btn" onclick="location.reload()">QUIT</button>
-        </div>
-    </div>
-
-    <div id="mobile-pause" onclick="pauseGame()">||</div>
     <div id="hud">
         <div class="hotbar">
-            <div class="slot active" id="s0" style="background:#5cb85c" onclick="selectSlot(0)"></div>
-            <div class="slot" id="s1" style="background:#808080" onclick="selectSlot(1)"></div>
-            <div class="slot" id="s2" style="background:#795548" onclick="selectSlot(2)"></div>
+            <div class="slot active" id="s0" onclick="selectSlot(0)" style="background-color: #5cb85c;"></div>
+            <div class="slot" id="s1" onclick="selectSlot(1)" style="background-color: #808080;"></div>
+            <div class="slot" id="s2" onclick="selectSlot(2)" style="background-color: #795548;"></div>
         </div>
     </div>
 
@@ -70,69 +46,72 @@
         <div class="action-btns">
             <div class="act-btn" onpointerdown="interact(true)">BUILD</div>
             <div class="act-btn" style="background:rgba(255,0,0,0.3)" onpointerdown="interact(false)">BREAK</div>
-            <div class="act-btn" onpointerdown="doJump()">JUMP</div>
+            <div class="act-btn" onpointerdown="if(vY===0) vY=0.18">JUMP</div>
         </div>
     </div>
 
     <script>
         let scene, camera, renderer, raycaster, blocks = [], keys = {};
-        let isPaused = true, isMobile = false, gameMode = 'survival';
-        let yaw = 0, pitch = 0, vY = 0, moveX = 0, moveZ = 0, selected = 0;
-        const palette = [0x5cb85c, 0x808080, 0x795548];
+        let isPaused = true, isMobile = false, selected = 0;
+        let yaw = 0, pitch = 0, vY = 0, moveX = 0, moveZ = 0;
 
-        function showCreate(show) { document.getElementById('create-menu').style.display = show ? 'flex' : 'none'; }
-        function setGameMode(m) {
-            gameMode = m;
-            document.getElementById('mode-surv').classList.toggle('active-opt', m === 'survival');
-            document.getElementById('mode-limit').classList.toggle('active-opt', m === 'limitless');
+        // --- TEXTURE CONFIGURATION ---
+        const loader = new THREE.TextureLoader();
+        function loadPixelTexture(url) {
+            const t = loader.load(url);
+            t.magFilter = THREE.NearestFilter; // KEEPS IT PIXELATED
+            t.minFilter = THREE.NearestFilter;
+            return t;
         }
+
+        // Replace these URLs with your 16x16 image links!
+        const textures = {
+            grass: loadPixelTexture('https://kovach750.itch.io/my-first-grass-tile'), // Placeholder
+            stone: loadPixelTexture('https://opengameart.org/content/16x-16-stone-set#'),
+            dirt: loadPixelTexture('https://www.istockphoto.com/id/vektor/latar-belakang-blok-tanah-gaya-minecraft-pixel-konsep-game-ground-pixelated-latar-gm1300167320-392576579')
+        };
+
+        const materials = [
+            new THREE.MeshStandardMaterial({ map: textures.grass }),
+            new THREE.MeshStandardMaterial({ map: textures.stone }),
+            new THREE.MeshStandardMaterial({ map: textures.dirt })
+        ];
 
         function bootGame(device) {
             isMobile = (device === 'mobile');
             document.getElementById('main-menu').style.display = 'none';
-            document.getElementById('create-menu').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
-            document.getElementById('mobile-pause').style.display = 'flex';
             if(isMobile) document.getElementById('mobile-controls').style.display = 'flex';
             else document.body.requestPointerLock();
             init();
             isPaused = false;
         }
 
-        function pauseGame() { isPaused = true; document.getElementById('pause-menu').style.display = 'flex'; document.exitPointerLock(); }
-        function resume() { document.getElementById('pause-menu').style.display = 'none'; if(!isMobile) document.body.requestPointerLock(); isPaused = false; }
-        function selectSlot(i) { document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active')); document.getElementById('s'+i).classList.add('active'); selected=i; }
-
         function init() {
             scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
             
             const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-            sun.position.set(10, 25, 10); sun.castShadow = true;
-            scene.add(sun); scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            sun.position.set(10, 20, 10); scene.add(sun);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
+            // Generate textured floor
             for(let x=-8; x<=8; x++) {
                 for(let z=-8; z<=8; z++) {
-                    const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: 0x5cb85c}));
-                    b.position.set(x,2,z); b.castShadow = b.receiveShadow = true;
-                    scene.add(b); blocks.push(b);
+                    addBlock(x, 2, z, materials[0]);
                 }
             }
             camera.position.set(0, 5, 5); raycaster = new THREE.Raycaster();
             loop();
         }
 
-        function checkCollision(pos) {
-            for(let b of blocks) {
-                if(Math.abs(pos.x - b.position.x) < 0.7 && 
-                   Math.abs(pos.y - b.position.y) < 1.2 && 
-                   Math.abs(pos.z - b.position.z) < 0.7) return true;
-            }
-            return false;
+        function addBlock(x, y, z, mat) {
+            const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat);
+            b.position.set(x,y,z);
+            scene.add(b); blocks.push(b);
         }
 
         function interact(isPlace) {
@@ -142,17 +121,21 @@
                 const h = hits[0];
                 if(isPlace) {
                     const p = h.object.position.clone().add(h.face.normal);
-                    const b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshStandardMaterial({color: palette[selected]}));
-                    b.position.copy(p); b.castShadow = b.receiveShadow = true;
-                    scene.add(b); blocks.push(b);
+                    addBlock(p.x, p.y, p.z, materials[selected]);
                 } else if(h.object.position.y !== 2) {
-                    scene.remove(h.object); blocks.splice(blocks.indexOf(h.object), 1);
+                    scene.remove(h.object);
+                    blocks.splice(blocks.indexOf(h.object), 1);
                 }
             }
         }
 
-        function doJump() { if(vY === 0) vY = 0.18; }
+        function selectSlot(i) {
+            document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active'));
+            document.getElementById('s'+i).classList.add('active');
+            selected = i;
+        }
 
+        // --- CONTROLS ---
         window.addEventListener('mousemove', e => {
             if(!isPaused && document.pointerLockElement) {
                 yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
@@ -162,25 +145,22 @@
 
         let tData = {};
         window.addEventListener('touchstart', e => { 
-            for(let t of e.changedTouches) {
-                if(t.target.tagName === 'CANVAS') tData[t.identifier] = {x:t.clientX, y:t.clientY};
-            }
+            for(let t of e.changedTouches) if(t.target.tagName === 'CANVAS') tData[t.identifier] = {x:t.clientX, y:t.clientY};
         });
         window.addEventListener('touchmove', e => {
             if(isPaused) return;
             for(let t of e.changedTouches) {
                 if(tData[t.identifier]) {
-                    yaw -= (t.clientX - tData[t.identifier].x) * 0.005;
-                    pitch -= (t.clientY - tData[t.identifier].y) * 0.005;
+                    yaw -= (t.clientX - tData[t.identifier].x) * 0.006;
+                    pitch -= (t.clientY - tData[t.identifier].y) * 0.006;
                     pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
                     tData[t.identifier] = {x:t.clientX, y:t.clientY};
                 }
             }
         });
-        window.addEventListener('touchend', e => { for(let t of e.changedTouches) delete tData[t.identifier]; });
 
         window.onmousedown = e => { if(!isPaused && !isMobile) interact(e.button !== 0); };
-        window.onkeydown = e => { keys[e.code] = true; if(e.code === 'Escape') pauseGame(); };
+        window.onkeydown = e => keys[e.code] = true;
         window.onkeyup = e => keys[e.code] = false;
 
         const joy = document.getElementById('joy');
@@ -204,28 +184,10 @@
             }
 
             const vec = new THREE.Vector3(dx, 0, dz).applyQuaternion(camera.quaternion);
-            vec.y = 0; 
-            
-            // Wall Collision Check
-            let nextPos = camera.position.clone().add(vec);
-            if(!checkCollision(nextPos)) camera.position.add(vec);
+            vec.y = 0; camera.position.add(vec);
 
-            // Gravity & Vertical Collision
-            if(gameMode === 'survival') {
-                vY -= 0.008; 
-            } else {
-                if(keys['Space']) vY = 0.15; else if(keys['ShiftLeft']) vY = -0.15; else vY *= 0.9;
-            }
-
-            let nextV = camera.position.clone(); nextV.y += vY;
-            if(!checkCollision(nextV)) {
-                camera.position.y += vY;
-            } else {
-                vY = 0;
-            }
-
-            // Floor Clamp
-            if(camera.position.y < 4) camera.position.y = 4;
+            vY -= 0.008; camera.position.y += vY;
+            if(camera.position.y < 4) { camera.position.y = 4; vY = 0; if(keys['Space']) vY = 0.18; }
 
             renderer.render(scene, camera);
         }
