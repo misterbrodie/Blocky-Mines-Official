@@ -2,255 +2,384 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blocky Mines 10.1 - High Performance</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Blocky Mines 10.5</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Blocky Mines">
+    <link rel="apple-touch-icon" href="https://media1.tenor.com/m/t3dLLNaI50oAAAAC/cat-cats.gif">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
+        :root { --mc-gui: #c6c6c6; --mc-shadow: #555; --mc-light: #fff; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; user-select: none; }
-        .menu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; background: rgba(0,0,0,0.85); color: white; text-align: center; }
-        .window { background: #c6c6c6; border: 4px solid #000; padding: 25px; width: 340px; color: #333; box-shadow: inset -4px -4px #555, inset 4px 4px #fff; }
-        .mc-btn { width: 100%; padding: 14px; margin: 8px 0; border: 2px solid #000; background: #666; color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #AAA; }
-        .mc-btn:hover { background: #777; }
+        
+        /* GUI Components */
+        .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); color: white; }
+        .window { background: var(--mc-gui); border: 4px solid #000; padding: 25px; width: 320px; color: #333; box-shadow: inset -4px -4px var(--mc-shadow), inset 4px 4px var(--mc-light); text-align: center; }
+        .mc-btn { width: 100%; padding: 12px; margin: 8px 0; border: 2px solid #000; background: #666; color: white; font-weight: bold; cursor: pointer; font-family: inherit; box-shadow: inset -3px -3px #333, inset 3px 3px #aaa; }
+        .mc-btn:active { transform: scale(0.98); background: #444; }
+        
+        /* HUD */
         #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; z-index: 1000; }
         .hotbar { display: flex; background: rgba(0,0,0,0.6); border: 4px solid #888; padding: 4px; gap: 4px; }
-        .slot { width: 48px; height: 48px; border: 4px solid #444; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; background: rgba(255,255,255,0.1); }
-        .active { border-color: #fff; background: rgba(255,255,255,0.3); }
-        #stats { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); display: none; }
-        .heart { width: 14px; height: 14px; background: #ff2d2d; border: 1px solid #000; display: inline-block; margin: 1px; }
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; display: none; }
+        .slot { width: 44px; height: 44px; border: 4px solid #444; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; position: relative; }
+        .slot.active { border-color: #fff; background: rgba(255,255,255,0.2); box-shadow: 0 0 10px #fff; }
+        
+        #stats { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); display: none; width: 200px; }
+        .heart-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
+        .heart { width: 12px; height: 12px; background: #ff2d2d; border: 1px solid #000; }
+        
+        /* Mobile Controls */
+        #mobile-controls { display: none; }
+        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; }
         #joy-stick { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; left: 30px; top: 30px; }
-        #jump-btn { position: absolute; bottom: 40px; right: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.2); border: 3px solid #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; color: white; font-weight: bold; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 16px; height: 16px; border: 2px solid white; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: difference; }
+        #jump-btn { position: absolute; bottom: 40px; right: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.2); border: 3px solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        #pause-trigger { position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; background: rgba(0,0,0,0.5); border: 2px solid #fff; color: white; display: none; align-items: center; justify-content: center; z-index: 1001; }
+
+        canvas { display: block; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid white; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: difference; }
     </style>
 </head>
 <body>
 
-    <div id="main-menu" class="menu">
+    <div id="main-menu" class="overlay">
         <div class="window">
-            <h1 style="margin-top:0">BLOCKY MINES 10.1</h1>
-            <input type="text" id="room" placeholder="ROOM CODE" style="width:90%; padding:10px; margin-bottom:10px; text-align:center;">
-            <button class="mc-btn" onclick="start('survival', 'pc')">SURVIVAL (PC)</button>
-            <button class="mc-btn" onclick="start('survival', 'mobile')">SURVIVAL (MOBILE)</button>
-            <button class="mc-btn" style="background:#444" onclick="start('limitless', 'pc')">LIMITLESS (PC)</button>
-            <button class="mc-btn" style="background:#444" onclick="start('limitless', 'mobile')">LIMITLESS (MOBILE)</button>
+            <h1 style="margin-top:0; font-size: 24px;">BLOCKY MINES 10.5</h1>
+            <p style="font-size: 10px; margin-bottom: 20px;">v10.5 - App Edition</p>
+            <button class="mc-btn" onclick="initGame('survival', 'pc')">SURVIVAL (PC)</button>
+            <button class="mc-btn" onclick="initGame('survival', 'mobile')">SURVIVAL (MOBILE)</button>
+            <button class="mc-btn" style="background:#444" onclick="initGame('limitless', 'pc')">LIMITLESS (PC)</button>
+            <button class="mc-btn" style="background:#444" onclick="initGame('limitless', 'mobile')">LIMITLESS (MOBILE)</button>
         </div>
     </div>
 
-    <div id="stats"></div>
+    <div id="pause-menu" class="overlay" style="display: none;">
+        <div class="window">
+            <h2>GAME PAUSED</h2>
+            <button class="mc-btn" onclick="togglePause()">RESUME GAME</button>
+            <button class="mc-btn" style="background:#844" onclick="location.reload()">QUIT TO TITLE</button>
+        </div>
+    </div>
+
     <div id="crosshair"></div>
-    <div id="hud"><div class="hotbar" id="hb"></div></div>
-    <div id="joy-base"><div id="joy-stick"></div></div>
-    <div id="jump-btn">JUMP</div>
+    <div id="pause-trigger" onclick="togglePause()">||</div>
+
+    <div id="stats"><div class="heart-container" id="hp-row"></div></div>
+    
+    <div id="hud">
+        <div class="hotbar" id="hb-ui"></div>
+    </div>
+
+    <div id="mobile-controls">
+        <div id="joy-base"><div id="joy-stick"></div></div>
+        <div id="jump-btn">JUMP</div>
+    </div>
 
     <script>
         /**
-         * ENGINE CORE - PERFORMANCE OPTIMIZED
+         * BLOCKY MINES 10.5 - FULL SOURCE
+         * Designed for 400 lines of performance and features.
          */
-        let scene, camera, renderer, raycaster, clock;
-        let isPaused = true, isSurvival = true, isMobile = false;
-        let health = 20, selected = 0, vY = 0, yaw = 0, pitch = 0, moveX = 0, moveZ = 0;
-        
-        // World Objects
-        let blocks = [], mobs = [], instancedMeshes = {};
-        const WORLD_SIZE = 50; // 100x100 total
-        const inventory = { "Grass": 64, "Stone": 64, "Wood": 64, "Leaves": 64, "Diamond": 10 };
-        const hotbar = ["Grass", "Stone", "Wood", "Leaves", "Diamond"];
 
-        function start(mode, plat) {
+        let scene, camera, renderer, raycaster, clock;
+        let blocks = [], mobs = [], isPaused = true, isSurvival = true, isMobile = false;
+        let health = 20, selectedSlot = 0, vY = 0, yaw = 0, pitch = 0;
+        let moveX = 0, moveZ = 0;
+
+        const WORLD_SIZE = 50; // 100x100 total
+        const inventory = { "Grass": 64, "Stone": 64, "Wood": 64, "Leaves": 64, "Diamond": 5 };
+        const hotbarKeys = ["Grass", "Stone", "Wood", "Leaves", "Diamond"];
+
+        // Texture Factory
+        function getTexture(color) {
+            const c = document.createElement('canvas');
+            c.width = 16; c.height = 16;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0,0,16,16);
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            for(let i=0; i<5; i++) ctx.fillRect(Math.random()*16, Math.random()*16, 2, 2);
+            const t = new THREE.CanvasTexture(c);
+            t.magFilter = THREE.NearestFilter;
+            return t;
+        }
+
+        const materials = {
+            "Grass": new THREE.MeshLambertMaterial({ map: getTexture('#5da345') }),
+            "Dirt": new THREE.MeshLambertMaterial({ map: getTexture('#7a5b40') }),
+            "Stone": new THREE.MeshLambertMaterial({ map: getTexture('#808080') }),
+            "Wood": new THREE.MeshLambertMaterial({ map: getTexture('#5c4033') }),
+            "Leaves": new THREE.MeshLambertMaterial({ map: getTexture('#3a5e2c'), transparent: true, opacity: 0.85 }),
+            "Diamond": new THREE.MeshLambertMaterial({ map: getTexture('#5decf5') }),
+            "Bedrock": new THREE.MeshLambertMaterial({ map: getTexture('#222') }),
+            "Mob": new THREE.MeshLambertMaterial({ color: 0xff4444 })
+        };
+
+        function initGame(mode, plat) {
             isSurvival = mode === 'survival';
             isMobile = plat === 'mobile';
+            
             document.getElementById('main-menu').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
             if(isSurvival) document.getElementById('stats').style.display = 'block';
             if(isMobile) {
-                document.getElementById('joy-base').style.display = 'block';
-                document.getElementById('jump-btn').style.display = 'flex';
+                document.getElementById('mobile-controls').style.display = 'block';
+                document.getElementById('pause-trigger').style.display = 'flex';
             }
-            init();
-        }
 
-        function createTex(color) {
-            const canv = document.createElement('canvas'); canv.width = 16; canv.height = 16;
-            const ctx = canv.getContext('2d'); ctx.fillStyle = color; ctx.fillRect(0,0,16,16);
-            for(let i=0; i<4; i++) { ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(Math.random()*16, Math.random()*16, 2, 2); }
-            const t = new THREE.CanvasTexture(canv); t.magFilter = THREE.NearestFilter; return t;
-        }
-
-        const mats = {
-            "Grass": new THREE.MeshLambertMaterial({map: createTex('#5da345')}),
-            "Dirt": new THREE.MeshLambertMaterial({map: createTex('#7a5b40')}),
-            "Stone": new THREE.MeshLambertMaterial({map: createTex('#808080')}),
-            "Wood": new THREE.MeshLambertMaterial({map: createTex('#5c4033')}),
-            "Leaves": new THREE.MeshLambertMaterial({map: createTex('#3a5e2c'), transparent:true, opacity:0.9}),
-            "Diamond": new THREE.MeshLambertMaterial({map: createTex('#5decf5')}),
-            "Bedrock": new THREE.MeshLambertMaterial({map: createTex('#222')}),
-            "Mob": new THREE.MeshLambertMaterial({color: 0xff4444})
-        };
-
-        function init() {
-            scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 500);
-            renderer = new THREE.WebGLRenderer({antialias: false, powerPreference: "high-performance"});
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
+            setupScene();
+            generateTerrain();
+            setupInputs();
+            updateGUI();
             
-            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-            const sun = new THREE.DirectionalLight(0xffffff, 0.5); sun.position.set(10, 20, 10); scene.add(sun);
-            
-            clock = new THREE.Clock(); raycaster = new THREE.Raycaster();
-            generateWorld();
-            setupControls();
-            updateUI();
             isPaused = false;
+            clock = new THREE.Clock();
             animate();
         }
 
-        /**
-         * BLOCK HANDLING
-         */
-        function addBlock(x, y, z, type) {
-            const geo = new THREE.BoxGeometry(2,2,2);
-            const b = new THREE.Mesh(geo, mats[type]);
-            b.position.set(x, y, z); b.name = type;
-            scene.add(b); blocks.push(b);
+        function setupScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambient);
+            const sun = new THREE.DirectionalLight(0xffffff, 0.4);
+            sun.position.set(10, 20, 10);
+            scene.add(sun);
+            
+            raycaster = new THREE.Raycaster();
+            raycaster.far = 10; // Reach distance
         }
 
-        function generateWorld() {
+        function spawnBlock(x, y, z, type) {
+            const geo = new THREE.BoxGeometry(2,2,2);
+            const b = new THREE.Mesh(geo, materials[type]);
+            b.position.set(x, y, z);
+            b.name = type;
+            scene.add(b);
+            blocks.push(b);
+        }
+
+        function generateTerrain() {
+            // Generate 100x100 Floor
             for(let x = -WORLD_SIZE; x < WORLD_SIZE; x += 2) {
                 for(let z = -WORLD_SIZE; z < WORLD_SIZE; z += 2) {
-                    addBlock(x, 0, z, "Grass");
-                    for(let y = -2; y > -6; y -= 2) addBlock(x, y, z, "Dirt");
-                    if(Math.random() < 0.01) spawnTree(x, 2, z);
+                    spawnBlock(x, 0, z, "Grass");
+                    // Underground
+                    for(let y = -2; y > -6; y -= 2) spawnBlock(x, y, z, "Dirt");
+                    if(Math.random() < 0.01) growTree(x, 2, z);
                 }
             }
-            // Spawn limited mobs for performance
-            for(let i=0; i<8; i++) {
-                const m = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), mats.Mob);
+            
+            // Random Mobs
+            for(let i=0; i<10; i++) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), materials.Mob);
                 m.position.set(Math.random()*40-20, 4, Math.random()*40-20);
-                scene.add(m); mobs.push(m);
+                scene.add(m);
+                mobs.push(m);
             }
+            
             camera.position.set(0, 8, 0);
         }
 
-        function spawnTree(x, y, z) {
-            for(let i=0; i<3; i++) addBlock(x, y+(i*2), z, "Wood");
-            for(let ox=-2; ox<=2; ox+=2) for(let oz=-2; oz<=2; oz+=2) addBlock(x+ox, y+6, z+oz, "Leaves");
-        }
-
-        /**
-         * INTERACTION ENGINE
-         */
-        function interact(isPlace) {
-            raycaster.setFromCamera({x:0, y:0}, camera);
-            const hits = raycaster.intersectObjects(blocks);
-            if(hits.length > 0) {
-                const h = hits[0], item = hotbar[selected];
-                if(isPlace && inventory[item] > 0) {
-                    const p = h.object.position.clone().add(h.face.normal.multiplyScalar(2));
-                    addBlock(p.x, p.y, p.z, item); if(inventory[item] !== Infinity) inventory[item]--;
-                } else if(!isPlace && h.object.name !== "Bedrock") {
-                    if(inventory[h.object.name] !== Infinity) inventory[h.object.name]++;
-                    scene.remove(h.object); blocks.splice(blocks.indexOf(h.object), 1);
+        function growTree(x, y, z) {
+            for(let i=0; i<3; i++) spawnBlock(x, y+(i*2), z, "Wood");
+            for(let ox=-2; ox<=2; ox+=2) {
+                for(let oz=-2; oz<=2; oz+=2) {
+                    spawnBlock(x+ox, y+6, z+oz, "Leaves");
                 }
-                updateUI();
             }
         }
 
-        /**
-         * CONTROLS - RE-WRITTEN FOR ZERO LAG
-         */
-        function setupControls() {
-            // PC
+        function togglePause() {
+            isPaused = !isPaused;
+            document.getElementById('pause-menu').style.display = isPaused ? 'flex' : 'none';
+            if(!isPaused && !isMobile) renderer.domElement.requestPointerLock();
+        }
+
+        function performAction(isPlace) {
+            if(isPaused) return;
+            raycaster.setFromCamera({x:0, y:0}, camera);
+            const hits = raycaster.intersectObjects(blocks);
+            
+            if(hits.length > 0) {
+                const h = hits[0];
+                const type = hotbarKeys[selectedSlot];
+                
+                if(isPlace && inventory[type] > 0) {
+                    const pos = h.object.position.clone().add(h.face.normal.multiplyScalar(2));
+                    spawnBlock(pos.x, pos.y, pos.z, type);
+                    if(inventory[type] !== Infinity) inventory[type]--;
+                } else if(!isPlace && h.object.name !== "Bedrock") {
+                    if(inventory[h.object.name] !== Infinity) inventory[h.object.name]++;
+                    scene.remove(h.object);
+                    blocks.splice(blocks.indexOf(h.object), 1);
+                }
+                updateGUI();
+            }
+        }
+
+        function setupInputs() {
+            // PC Keyboard
             window.addEventListener('keydown', e => {
-                if(e.code === 'KeyW') moveZ = -0.15; if(e.code === 'KeyS') moveZ = 0.15;
-                if(e.code === 'KeyA') moveX = -0.15; if(e.code === 'KeyD') moveX = 0.15;
-                if(e.code === 'Space' && vY === 0) vY = 0.2;
-                if(e.key >= 1 && e.key <= 5) { selected = e.key-1; updateUI(); }
+                if(e.code === 'Escape') togglePause();
+                if(isPaused) return;
+                if(e.code === 'KeyW') moveZ = -0.15;
+                if(e.code === 'KeyS') moveZ = 0.15;
+                if(e.code === 'KeyA') moveX = -0.15;
+                if(e.code === 'KeyD') moveX = 0.15;
+                if(e.code === 'Space' && vY === 0) vY = 0.22;
+                if(e.key >= 1 && e.key <= 5) { selectedSlot = e.key - 1; updateGUI(); }
             });
+            
             window.addEventListener('keyup', e => {
-                if(['KeyW','KeyS'].includes(e.code)) moveZ = 0;
-                if(['KeyA','KeyD'].includes(e.code)) moveX = 0;
+                if(['KeyW', 'KeyS'].includes(e.code)) moveZ = 0;
+                if(['KeyA', 'KeyD'].includes(e.code)) moveX = 0;
             });
+
             window.addEventListener('mousemove', e => {
-                if(document.pointerLockElement) {
-                    yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
+                if(!isPaused && document.pointerLockElement) {
+                    yaw -= e.movementX * 0.002;
+                    pitch -= e.movementY * 0.002;
                     pitch = Math.max(-1.5, Math.min(1.5, pitch));
                 }
             });
-            window.addEventListener('mousedown', e => { if(!isMobile) interact(e.button !== 0); });
 
-            // MOBILE
-            let jId = null, rx, ry, timer;
+            window.addEventListener('mousedown', e => {
+                if(!isMobile) performAction(e.button !== 0);
+            });
+
+            // Mobile Touch
+            let joyId = null, startX, startY, touchTimer;
+            const jb = document.getElementById('joy-base');
+            const js = document.getElementById('joy-stick');
+
             window.addEventListener('touchstart', e => {
                 for(let t of e.changedTouches) {
-                    if(t.clientX < window.innerWidth/2 && jId === null) jId = t.identifier;
-                    else if(t.clientX >= window.innerWidth/2) {
-                        rx = t.clientX; ry = t.clientY;
-                        timer = setTimeout(() => interact(false), 500); // LONG PRESS BREAK
+                    if(t.clientX < window.innerWidth/2 && joyId === null) {
+                        joyId = t.identifier;
+                    } else if(t.clientX >= window.innerWidth/2) {
+                        startX = t.clientX; startY = t.clientY;
+                        touchTimer = setTimeout(() => performAction(false), 500); // LONG PRESS
                     }
                 }
             });
+
             window.addEventListener('touchmove', e => {
                 for(let t of e.touches) {
-                    if(t.identifier === jId) {
-                        const b = document.getElementById('joy-base').getBoundingClientRect();
-                        let dx = t.clientX - (b.left + 50), dy = t.clientY - (b.top + 50);
-                        const d = Math.sqrt(dx*dx+dy*dy); if(d>40) {dx*=40/d; dy*=40/d;}
-                        document.getElementById('joy-stick').style.transform = `translate(${dx}px, ${dy}px)`;
+                    if(t.identifier === joyId) {
+                        const rect = jb.getBoundingClientRect();
+                        let dx = t.clientX - (rect.left + 50);
+                        let dy = t.clientY - (rect.top + 50);
+                        const dist = Math.sqrt(dx*dx+dy*dy);
+                        if(dist > 40) { dx *= 40/dist; dy *= 40/dist; }
+                        js.style.transform = `translate(${dx}px, ${dy}px)`;
                         moveX = (dx/40)*0.15; moveZ = (dy/40)*0.15;
                     } else if(t.clientX > window.innerWidth/2) {
-                        yaw -= (t.clientX - rx) * 0.007; pitch -= (t.clientY - ry) * 0.007;
-                        rx = t.clientX; ry = t.clientY; clearTimeout(timer);
+                        yaw -= (t.clientX - startX) * 0.008;
+                        pitch -= (t.clientY - startY) * 0.008;
+                        startX = t.clientX; startY = t.clientY;
+                        clearTimeout(touchTimer);
                     }
                 }
             });
+
             window.addEventListener('touchend', e => {
                 for(let t of e.changedTouches) {
-                    if(t.identifier === jId) { jId=null; moveX=0; moveZ=0; document.getElementById('joy-stick').style.transform='none'; }
-                    else if(t.clientX >= window.innerWidth/2) {
-                        if(Date.now() - (timer?._startTime || 0) < 500) interact(true); // TAP PLACE
-                        clearTimeout(timer);
+                    if(t.identifier === joyId) {
+                        joyId = null; moveX = 0; moveZ = 0; js.style.transform = 'none';
+                    } else if(t.clientX >= window.innerWidth/2) {
+                        if(Date.now() - (touchTimer?._startTime || 0) < 500) performAction(true); // TAP
+                        clearTimeout(touchTimer);
                     }
                 }
             });
-            document.getElementById('jump-btn').onclick = () => { if(vY===0) vY=0.2; };
-            renderer.domElement.onclick = () => { if(!isMobile) renderer.domElement.requestPointerLock(); };
+
+            document.getElementById('jump-btn').addEventListener('touchstart', () => { if(vY===0) vY=0.22; });
+            renderer.domElement.onclick = () => { if(!isMobile && !isPaused) renderer.domElement.requestPointerLock(); };
         }
 
-        /**
-         * GAME LOOP
-         */
+        function updateGUI() {
+            const ui = document.getElementById('hb-ui');
+            ui.innerHTML = '';
+            hotbarKeys.forEach((key, i) => {
+                const s = document.createElement('div');
+                s.className = `slot ${i === selectedSlot ? 'active' : ''}`;
+                s.innerHTML = `<span>${key[0]}</span><div style="position:absolute;bottom:2px;right:2px;font-size:8px">${inventory[key] === Infinity ? '∞' : inventory[key]}</div>`;
+                s.onclick = (e) => { e.stopPropagation(); selectedSlot = i; updateGUI(); };
+                ui.appendChild(s);
+            });
+
+            if(isSurvival) {
+                const hp = document.getElementById('hp-row');
+                hp.innerHTML = '';
+                for(let i=0; i<Math.floor(health); i++) hp.innerHTML += `<div class="heart"></div>`;
+            }
+        }
+
         function animate() {
-            requestAnimationFrame(animate); if(isPaused) return;
-            camera.rotation.set(pitch, yaw, 0, 'YXZ');
-            const v = new THREE.Vector3(moveX, 0, moveZ).applyQuaternion(camera.quaternion);
-            v.y = 0; camera.position.add(v);
+            requestAnimationFrame(animate);
+            if(isPaused) return;
+
+            const delta = clock.getDelta();
             
-            vY -= 0.01; camera.position.y += vY;
+            // Movement Physics
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            const moveVec = new THREE.Vector3(moveX, 0, moveZ).applyQuaternion(camera.quaternion);
+            moveVec.y = 0;
+            camera.position.add(moveVec);
+            
+            // Gravity
+            vY -= 0.01;
+            camera.position.y += vY;
             if(camera.position.y < 4) { camera.position.y = 4; vY = 0; }
             
+            // Mob AI & Damage
             mobs.forEach(m => {
-                m.position.x += Math.sin(Date.now()*0.001) * 0.02;
+                m.position.x += Math.sin(Date.now()*0.001 + m.id) * 0.03;
                 if(isSurvival && m.position.distanceTo(camera.position) < 4) health -= 0.05;
             });
 
-            if(isSurvival && health <= 0) location.reload();
+            if(isSurvival && health <= 0) {
+                alert("Game Over!");
+                location.reload();
+            }
+
             renderer.render(scene, camera);
         }
 
-        function updateUI() {
-            const h = document.getElementById('hb'); h.innerHTML = '';
-            hotbar.forEach((k, i) => h.innerHTML += `<div class="slot ${i===selected?'active':''}">${k[0]}<br>${inventory[k]===Infinity?'∞':inventory[k]}</div>`);
-            if(isSurvival) {
-                const s = document.getElementById('stats'); s.innerHTML = '';
-                for(let i=0; i<Math.floor(health); i++) s.innerHTML += `<div class="heart"></div>`;
-            }
-        }
-        
+        // Handle Resizing
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // PWA Support - Manifest generation
+        const manifest = {
+            name: "Blocky Mines",
+            short_name: "Blocky",
+            start_url: ".",
+            display: "standalone",
+            background_color: "#000000",
+            theme_color: "#5da345"
+        };
+        const stringManifest = JSON.stringify(manifest);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestURL;
+        document.head.appendChild(link);
+
     </script>
 </body>
 </html>
