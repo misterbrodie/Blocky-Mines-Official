@@ -2,150 +2,126 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Blocky Mines</title>
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Blocky Mines">
+    <meta name="apple-mobile-web-app-title" content="BlockyMines">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <link rel="apple-touch-icon" href="https://media1.tenor.com/m/t3dLLNaI50oAAAAC/cat-cats.gif">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --mc-gui: #c6c6c6; --mc-shadow: #555; --mc-light: #fff; --mc-btn: #666; }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; user-select: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-        .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); color: white; }
-        .window { background: var(--mc-gui); border: 4px solid #000; padding: 20px; width: 340px; color: #333; box-shadow: inset -4px -4px var(--mc-shadow), inset 4px 4px var(--mc-light); text-align: center; }
-        .mc-btn { width: 100%; padding: 12px; margin: 5px 0; border: 2px solid #000; background: var(--mc-btn); color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #aaa; }
-        #loading-bar { width: 200px; height: 20px; border: 2px solid #fff; margin: 15px auto; overflow: hidden; }
-        #progress { width: 0%; height: 100%; background: #5da345; }
-        #hud { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: none; z-index: 1000; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #87CEEB; 
+            font-family: 'Courier New', monospace; 
+            touch-action: none; 
+            user-select: none;
+            /* Support for iPhone Notches */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        
+        .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5000; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); color: white; }
+        .window { background: var(--mc-gui); border: 4px solid #000; padding: 20px; width: 300px; color: #333; box-shadow: inset -4px -4px var(--mc-shadow), inset 4px 4px var(--mc-light); text-align: center; }
+        .mc-btn { width: 100%; padding: 12px; margin: 5px 0; border: 2px solid #000; background: var(--mc-btn); color: white; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px #333, inset 3px 3px #aaa; outline: none; }
+        
+        #hud { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); display: none; z-index: 1000; }
         .hotbar { display: flex; background: rgba(0,0,0,0.6); border: 4px solid #888; padding: 4px; gap: 4px; }
         .slot { width: 44px; height: 44px; border: 4px solid #444; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; }
         .slot.active { border-color: #fff; background: rgba(255,255,255,0.3); }
-        #joy-base { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; display: none; }
-        #joy-stick { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; left: 30px; top: 30px; }
-        #jump-btn { position: absolute; bottom: 40px; right: 40px; width: 80px; height: 80px; background: rgba(255,255,255,0.2); border: 3px solid #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-weight: bold; }
+        
+        #joy-base { position: absolute; bottom: 50px; left: 50px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; display: none; }
+        #joy-stick { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; left: 30px; top: 30px; pointer-events: none; }
+        #jump-btn { position: absolute; bottom: 60px; right: 60px; width: 80px; height: 80px; background: rgba(255,255,255,0.2); border: 3px solid #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-weight: bold; color: white; }
         #crosshair { position: absolute; top: 50%; left: 50%; width: 18px; height: 18px; border: 2px solid white; transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: difference; }
     </style>
 </head>
 <body>
-    <div id="loading-screen" class="overlay">
-        <h1>GENERATING 500x500 WORLD</h1>
-        <p>Carving Caves...</p>
-        <div id="loading-bar"><div id="progress"></div></div>
-    </div>
 
-    <div id="main-menu" class="overlay" style="display:none">
+    <div id="main-menu" class="overlay">
         <div class="window">
-            <img src="https://media1.tenor.com/m/t3dLLNaI50oAAAAC/cat-cats.gif" style="width: 70px; border-radius: 8px;">
-            <h1 style="margin: 10px 0;">BLOCKY MINES</h1>
+            <h1>BLOCKY MINES</h1>
             <button class="mc-btn" onclick="start()">ENTER WORLD</button>
-            <p style="font-size: 10px;">Caves & 500x500 Terrain Active</p>
+            <p style="font-size: 10px;">iOS Web App Mode Enabled</p>
         </div>
     </div>
 
-    <div id="pause-menu" class="overlay" style="display:none"><div class="window"><h2>PAUSED</h2><button class="mc-btn" onclick="togglePause()">RESUME</button></div></div>
     <div id="crosshair"></div>
     <div id="hud"><div class="hotbar" id="hb-ui"></div></div>
     <div id="joy-base"><div id="joy-stick"></div></div>
     <div id="jump-btn">JUMP</div>
 
     <script>
-        let scene, camera, renderer, raycaster, clock, blocks=[], isPaused=true, selected=0;
-        let vY=0, yaw=0, pitch=0, moveX=0, moveZ=0, gravity=0.01;
-        const items = ["Grass","Stone","Wood","Sand","Leaves"];
-        const WORLD_SIZE = 500; // Total 500x500 area
+        let scene, camera, renderer, raycaster, clock, blocks=[], mobs=[], isPaused=true, selected=0;
+        let vY=0, yaw=0, pitch=0, moveX=0, moveZ=0;
         
-        function makeTex(col) {
-            const c = document.createElement('canvas'); c.width=16; ctx=c.getContext('2d');
-            ctx.fillStyle=col; ctx.fillRect(0,0,16,16);
-            ctx.fillStyle='rgba(0,0,0,0.1)'; for(let i=0;i<5;i++) ctx.fillRect(Math.random()*16,Math.random()*16,2,2);
-            return new THREE.CanvasTexture(c);
-        }
+        const SETTINGS = { gravity: 0.01, mobSpeed: 1.0 };
+        const items = ["Grass","Stone","Wood","Sand","Leaves"];
 
-        const mats = {
-            "Grass": new THREE.MeshLambertMaterial({map:makeTex('#5da345')}),
-            "Stone": new THREE.MeshLambertMaterial({map:makeTex('#808080')}),
-            "Wood": new THREE.MeshLambertMaterial({map:makeTex('#5c4033')}),
-            "Sand": new THREE.MeshLambertMaterial({map:makeTex('#edc9af')}),
-            "Leaves": new THREE.MeshLambertMaterial({map:makeTex('#3a5e2c'), transparent:true, opacity:0.9})
+        const bc = new BroadcastChannel('bm_mod_link');
+        bc.onmessage = (event) => {
+            const mods = event.data;
+            if(mods.gravity !== undefined) SETTINGS.gravity = mods.gravity;
+            if(mods.mobSpeed !== undefined) SETTINGS.mobSpeed = mods.mobSpeed;
         };
 
-        async function start() {
+        function start() {
             document.getElementById('main-menu').style.display='none';
             document.getElementById('hud').style.display='block';
-            if('ontouchstart' in window) { document.getElementById('joy-base').style.display='block'; document.getElementById('jump-btn').style.display='flex'; }
+            // Enable controls if on touch device
+            if('ontouchstart' in window) { 
+                document.getElementById('joy-base').style.display='block'; 
+                document.getElementById('jump-btn').style.display='flex'; 
+            }
             init();
         }
 
         function init() {
             scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({antialias:false}); renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer = new THREE.WebGLRenderer({antialias:false});
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-            let sun = new THREE.DirectionalLight(0xffffff, 0.4); sun.position.set(50, 100, 50); scene.add(sun);
-            raycaster = new THREE.Raycaster();
-            generateWorld();
-        }
-
-        async function generateWorld() {
-            const prog = document.getElementById('progress');
-            const step = 2; 
-            const half = WORLD_SIZE / 2;
-
-            for(let x = -half; x < half; x += step) {
-                for(let z = -half; z < half; z += step) {
-                    let bioNoise = Math.sin(x*0.05) * Math.cos(z*0.05);
-                    
-                    // Underground - Stone & Caves
-                    for(let y = -10; y < 0; y += step) {
-                        // 3D Noise for Caves
-                        let caveNoise = Math.sin(x*0.2) + Math.sin(y*0.2) + Math.sin(z*0.2);
-                        if(caveNoise > 0) { // If noise isn't "empty space", place stone
-                            place(x, y, z, "Stone");
-                        }
-                    }
-
-                    // Surface
-                    if(bioNoise > 0.4) {
-                        place(x, 0, z, "Grass");
-                        if(Math.random() < 0.05) spawnTree(x, 2, z);
-                    } else if(bioNoise < -0.4) {
-                        place(x, 0, z, "Sand");
-                    } else {
-                        place(x, 0, z, "Grass");
-                    }
-                }
-                // Async loading to keep browser alive
-                if(x % 20 === 0) {
-                    prog.style.width = ((x + half) / WORLD_SIZE * 100) + "%";
-                    await new Promise(r => setTimeout(r, 0));
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+            raycaster = new THREE.Raycaster(); clock = new THREE.Clock();
+            
+            // Generate World
+            for(let x = -40; x < 40; x += 2) {
+                for(let z = -40; z < 40; z += 2) {
+                    const b = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), new THREE.MeshLambertMaterial({color: 0x5da345}));
+                    b.position.set(x, 0, z); scene.add(b); blocks.push(b);
                 }
             }
-            document.getElementById('loading-screen').style.display = 'none';
-            document.getElementById('main-menu').style.display = 'flex';
-            camera.position.set(0, 10, 0);
+
+            spawnMob(10, 2, 10, 0x8b4513); // Dog
+            
+            camera.position.set(0, 8, 0);
             updateUI(); setupIO();
         }
 
-        function spawnTree(x,y,z) {
-            for(let i=0; i<3; i++) place(x, y+(i*2), z, "Wood");
-            for(let ox=-2; ox<=2; ox+=2) for(let oz=-2; oz<=2; oz+=2) place(x+ox, y+6, z+oz, "Leaves");
+        function spawnMob(x, y, z, color) {
+            const g = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 1.8), new THREE.MeshLambertMaterial({color: color}));
+            g.add(body);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshLambertMaterial({color: color}));
+            head.position.set(0, 0.5, 0.8); g.add(head);
+            g.position.set(x,y,z);
+            scene.add(g);
+            mobs.push({ mesh: g, timer: Math.random() * 5 });
         }
-
-        function place(x,y,z,t) {
-            const b = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), mats[t]);
-            b.position.set(x,y,z); b.name=t; scene.add(b); blocks.push(b);
-        }
-
-        function togglePause() { isPaused = !isPaused; document.getElementById('pause-menu').style.display = isPaused?'flex':'none'; }
 
         function setupIO() {
-            let jId=null, lX, lY, breakTimer;
+            let jId=null, lX, lY;
             window.addEventListener('touchstart', e => {
                 for(let t of e.changedTouches) {
                     if(t.clientX < window.innerWidth/2 && jId===null) jId=t.identifier;
-                    else { lX=t.clientX; lY=t.clientY; breakTimer = setTimeout(() => { interact(false); breakTimer = null; }, 400); }
+                    else { lX=t.clientX; lY=t.clientY; }
                 }
             });
             window.addEventListener('touchmove', e => {
@@ -154,27 +130,14 @@
                         let r=document.getElementById('joy-base').getBoundingClientRect(), dx=t.clientX-(r.left+50), dy=t.clientY-(r.top+50);
                         moveX=(dx/40)*0.2; moveZ=(dy/40)*0.2;
                     } else {
-                        yaw-=(t.clientX-lX)*0.007; pitch-=(t.clientY-lY)*0.007; lX=t.clientX; lY=t.clientY;
-                        if(breakTimer) { clearTimeout(breakTimer); breakTimer = null; }
+                        yaw-=(t.clientX-lX)*0.007; pitch-=(t.clientY-lY)*0.007;
+                        lX=t.clientX; lY=t.clientY;
                     }
                 }
             });
-            window.addEventListener('touchend', e => {
-                for(let t of e.changedTouches) {
-                    if(t.identifier===jId) { jId=null; moveX=0; moveZ=0; }
-                    else if(breakTimer) { clearTimeout(breakTimer); interact(true); }
-                }
-            });
-            document.getElementById('jump-btn').ontouchstart = () => { if(vY===0) vY=0.22; };
+            window.addEventListener('touchend', e => { for(let t of e.changedTouches) if(t.identifier===jId) {jId=null; moveX=0; moveZ=0;} });
+            document.getElementById('jump-btn').ontouchstart = (e) => { e.preventDefault(); if(vY===0) vY=0.22; };
             isPaused=false; animate();
-        }
-
-        function interact(isPlace) {
-            raycaster.setFromCamera({x:0,y:0}, camera); let h=raycaster.intersectObjects(blocks);
-            if(h.length>0 && h[0].distance < 15) {
-                if(isPlace) { let p=h[0].object.position.clone().add(h[0].face.normal.multiplyScalar(2)); place(p.x,p.y,p.z,items[selected]); }
-                else { scene.remove(h[0].object); blocks.splice(blocks.indexOf(h[0].object),1); }
-            }
         }
 
         function updateUI() {
@@ -183,13 +146,20 @@
         }
 
         function animate() {
-            requestAnimationFrame(animate); if(isPaused) return;
+            requestAnimationFrame(animate); 
+            if(isPaused) return;
+            const dt = clock.getDelta();
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
             let mv=new THREE.Vector3(moveX,0,moveZ).applyQuaternion(camera.quaternion);
-            camera.position.add(mv); vY-=gravity; camera.position.y+=vY;
-            if(camera.position.y<4 && camera.position.y > -20){ // Simple floor check
-                // Physics check would go here for complex terrain, simplified for scale
-            }
+            camera.position.add(mv);
+            vY -= SETTINGS.gravity; camera.position.y += vY;
+            if(camera.position.y < 4.5) { camera.position.y = 4.5; vY = 0; }
+
+            mobs.forEach(m => {
+                m.timer += dt * SETTINGS.mobSpeed;
+                m.mesh.position.z += Math.sin(m.timer) * 0.03;
+                m.mesh.rotation.y = Math.cos(m.timer * 0.5);
+            });
             renderer.render(scene, camera);
         }
     </script>
