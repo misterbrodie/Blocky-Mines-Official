@@ -6,7 +6,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <link rel="apple-touch-icon" href="https://media.craiyon.com/2026-04-24/7um_55hMSMieRKzNFaM-fA.webp">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gui: #c6c6c6; --btn: #666; }
@@ -14,24 +16,37 @@
         .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; }
         .window { background: var(--gui); border: 4px solid #000; padding: 20px; width: 300px; color: #333; text-align: center; box-shadow: 8px 8px 0 rgba(0,0,0,0.4); }
         .mc-btn { width: 100%; padding: 12px; margin: 8px 0; border: 3px solid #000; background: var(--btn); color: #fff; font-weight: bold; cursor: pointer; box-shadow: inset -4px -4px #333; }
+        
         #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; z-index: 500; }
-        .hotbar { display: flex; background: rgba(0,0,0,0.85); border: 4px solid #555; padding: 4px; gap: 4px; }
-        .slot { width: 42px; height: 42px; border: 4px solid #333; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; }
+        .hotbar-container { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.85); border: 4px solid #555; padding: 4px; }
+        .hotbar { display: flex; gap: 4px; }
+        .slot { width: 40px; height: 40px; border: 4px solid #333; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; font-weight: bold; cursor: pointer; }
         .slot.active { border-color: #fff; background: rgba(255,255,255,0.2); }
+        .dots-btn { width: 30px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; cursor: pointer; border-left: 2px solid #555; padding-left: 8px; }
+        
         #clock-ui { position: absolute; top: 15px; right: 25px; font-weight: bold; text-shadow: 2px 2px #000; color: #fff; font-size: 18px; }
         #stats { position: absolute; top: 45px; left: 25px; display: none; color: #fff; text-shadow: 1px 1px #000; }
         .bar { width: 120px; height: 12px; border: 2px solid #000; background: #222; margin-top: 4px; }
         #hp-fill { height: 100%; background: #f22; width: 100%; transition: 0.3s; }
-        #cross { position: absolute; top: 50%; left: 50%; width: 20px; height: 2px; background: #fff; transform: translate(-50%, -50%); display: none; }
+        #cross { position: absolute; top: 50%; left: 50%; width: 20px; height: 2px; background: #fff; transform: translate(-50%, -50%); display: none; pointer-events: none; mix-blend-mode: difference; }
         #cross::after { content:''; position: absolute; top: 50%; left: 50%; width: 2px; height: 20px; background: #fff; transform: translate(-50%, -50%); }
     </style>
 </head>
 <body>
     <div id="m-os" class="overlay"><div class="window"><h1>BLOCKY MINES</h1><button class="mc-btn" onclick="setup(false)">PC MODE</button><button class="mc-btn" onclick="setup(true)">MOBILE MODE</button></div></div>
     <div id="m-mode" class="overlay" style="display:none"><div class="window"><h2>MODE</h2><button class="mc-btn" onclick="start('Survival')">SURVIVAL</button><button class="mc-btn" onclick="start('Limitless')">LIMITLESS</button></div></div>
-    <div id="clock-ui">DAY</div><div id="cross"></div>
+    
+    <div id="clock-ui">DAY</div>
+    <div id="cross"></div>
     <div id="stats">HEALTH <div class="bar"><div id="hp-fill"></div></div></div>
-    <div id="hud"><div class="hotbar" id="hb"></div></div>
+    
+    <div id="hud">
+        <div class="hotbar-container">
+            <div class="hotbar" id="hb"></div>
+            <div class="dots-btn" onclick="clearHotbar()">...</div>
+        </div>
+    </div>
+
     <script>
         let scene, camera, renderer, clock, sun, isMobile, gameMode, moveZ=0, moveX=0, vY=0, yaw=0, pitch=0, slot=0, hp=100, gameTime=0;
         let blocks=[], entities=[], ray=new THREE.Raycaster(), mats={};
@@ -39,6 +54,7 @@
         const COLOR={Grass:0x5da345,Stone:0x808080,Wood:0x5c4033,Leaves:0x3a5e2c,Glass:0xadd8e6,TNT:0xff2222,Table:0x8b4513,Cranberry:0xff0000,Zombie:0x2e4d23};
 
         function setup(m) { isMobile=m; document.getElementById('m-os').style.display='none'; document.getElementById('m-mode').style.display='flex'; }
+        
         function start(m) { 
             gameMode=m; document.getElementById('m-mode').style.display='none'; document.getElementById('hud').style.display='block';
             if(gameMode==='Survival') document.getElementById('stats').style.display='block';
@@ -54,16 +70,19 @@
             const t=new THREE.CanvasTexture(cv); t.magFilter=t.minFilter=THREE.NearestFilter; return t;
         }
 
+        function clearHotbar() {
+            if(confirm("Clear inventory?")) { slot = 0; drawHB(); }
+        }
+
         function init() {
             scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             renderer=new THREE.WebGLRenderer({antialias:false}); renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+            renderer.shadowMap.enabled=true;
             document.body.appendChild(renderer.domElement);
             
             scene.fog=new THREE.FogExp2(0x87CEEB, 0.012);
             scene.add(new THREE.AmbientLight(0xffffff, 0.4));
             sun=new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(50,100,50); sun.castShadow=true;
-            sun.shadow.camera.left=sun.shadow.camera.bottom=-100; sun.shadow.camera.right=sun.shadow.camera.top=100;
             scene.add(sun); clock=new THREE.Clock();
 
             for(let x=-40;x<=40;x+=2) {
@@ -74,6 +93,7 @@
                     if(Math.random()<0.001) addB(x,h+1.2,z,"Cranberry",true);
                 }
             }
+            // 1000x1000 Borders
             const wall=new THREE.BoxGeometry(1002,500,2);
             [[0,240,501],[0,240,-501],[501,240,0],[-501,240,0]].forEach((p,i)=>{
                 const w=new THREE.Mesh(wall,mats.Stone); if(i>1)w.rotation.y=Math.PI/2; w.position.set(...p); scene.add(w);
@@ -105,7 +125,10 @@
             document.onmousemove=e=>{if(document.pointerLockElement){yaw-=e.movementX*0.0022; pitch-=e.movementY*0.0022; pitch=Math.max(-1.5,Math.min(1.5,pitch));}};
         }
 
-        function drawHB() { const h=document.getElementById('hb'); h.innerHTML=''; ITEMS.forEach((it,i)=>h.innerHTML+=`<div class="slot ${i===slot?'active':''}" onclick="slot=${i};drawHB()">${it[0]}</div>`); }
+        function drawHB() { 
+            const h=document.getElementById('hb'); h.innerHTML=''; 
+            ITEMS.forEach((it,i)=>h.innerHTML+=`<div class="slot ${i===slot?'active':''}" onclick="slot=${i};drawHB()">${it[0]}</div>`); 
+        }
 
         function loop() {
             requestAnimationFrame(loop); const dt=clock.getDelta(); gameTime+=dt;
