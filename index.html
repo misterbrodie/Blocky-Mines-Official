@@ -2,13 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BLOCKY MINES 1.0</title>
+    <title>BLOCKY MINES: COLLECTOR EDITION</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
     <link rel="apple-touch-icon" href="https://media.craiyon.com/2026-04-24/7um_55hMSMieRKzNFaM-fA.webp">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gui: #c6c6c6; --btn: #666; }
@@ -16,14 +14,13 @@
         .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; }
         .window { background: var(--gui); border: 4px solid #000; padding: 20px; width: 300px; color: #333; text-align: center; box-shadow: 8px 8px 0 rgba(0,0,0,0.4); }
         .mc-btn { width: 100%; padding: 12px; margin: 8px 0; border: 3px solid #000; background: var(--btn); color: #fff; font-weight: bold; cursor: pointer; box-shadow: inset -4px -4px #333; }
-        
         #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; z-index: 500; }
         .hotbar-container { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.85); border: 4px solid #555; padding: 4px; }
         .hotbar { display: flex; gap: 4px; }
-        .slot { width: 40px; height: 40px; border: 4px solid #333; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; font-weight: bold; cursor: pointer; }
+        .slot { width: 42px; height: 42px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 8px; color: #fff; position: relative; }
         .slot.active { border-color: #fff; background: rgba(255,255,255,0.2); }
+        .count { position: absolute; bottom: 2px; right: 2px; font-size: 10px; color: #0f0; }
         .dots-btn { width: 30px; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; cursor: pointer; border-left: 2px solid #555; padding-left: 8px; }
-        
         #clock-ui { position: absolute; top: 15px; right: 25px; font-weight: bold; text-shadow: 2px 2px #000; color: #fff; font-size: 18px; }
         #stats { position: absolute; top: 45px; left: 25px; display: none; color: #fff; text-shadow: 1px 1px #000; }
         .bar { width: 120px; height: 12px; border: 2px solid #000; background: #222; margin-top: 4px; }
@@ -35,29 +32,23 @@
 <body>
     <div id="m-os" class="overlay"><div class="window"><h1>BLOCKY MINES</h1><button class="mc-btn" onclick="setup(false)">PC MODE</button><button class="mc-btn" onclick="setup(true)">MOBILE MODE</button></div></div>
     <div id="m-mode" class="overlay" style="display:none"><div class="window"><h2>MODE</h2><button class="mc-btn" onclick="start('Survival')">SURVIVAL</button><button class="mc-btn" onclick="start('Limitless')">LIMITLESS</button></div></div>
-    
-    <div id="clock-ui">DAY</div>
-    <div id="cross"></div>
+    <div id="clock-ui">DAY</div><div id="cross"></div>
     <div id="stats">HEALTH <div class="bar"><div id="hp-fill"></div></div></div>
-    
-    <div id="hud">
-        <div class="hotbar-container">
-            <div class="hotbar" id="hb"></div>
-            <div class="dots-btn" onclick="clearHotbar()">...</div>
-        </div>
-    </div>
+    <div id="hud"><div class="hotbar-container"><div class="hotbar" id="hb"></div><div class="dots-btn" onclick="clearInv()">...</div></div></div>
 
     <script>
         let scene, camera, renderer, clock, sun, isMobile, gameMode, moveZ=0, moveX=0, vY=0, yaw=0, pitch=0, slot=0, hp=100, gameTime=0;
         let blocks=[], entities=[], ray=new THREE.Raycaster(), mats={};
         const ITEMS=["Grass","Stone","Wood","Leaves","Glass","TNT","Table","Cranberry"];
         const COLOR={Grass:0x5da345,Stone:0x808080,Wood:0x5c4033,Leaves:0x3a5e2c,Glass:0xadd8e6,TNT:0xff2222,Table:0x8b4513,Cranberry:0xff0000,Zombie:0x2e4d23};
+        let inventory = { Grass:0, Stone:0, Wood:0, Leaves:0, Glass:0, TNT:0, Table:0, Cranberry:0 };
 
         function setup(m) { isMobile=m; document.getElementById('m-os').style.display='none'; document.getElementById('m-mode').style.display='flex'; }
         
         function start(m) { 
             gameMode=m; document.getElementById('m-mode').style.display='none'; document.getElementById('hud').style.display='block';
             if(gameMode==='Survival') document.getElementById('stats').style.display='block';
+            else { ITEMS.forEach(i => inventory[i] = "∞"); } // Limitless gets infinite blocks
             if(!isMobile) document.getElementById('cross').style.display='block';
             for(let k in COLOR) mats[k]=new THREE.MeshStandardMaterial({map:tex(COLOR[k]), roughness: 0.8});
             init(); 
@@ -66,24 +57,19 @@
         function tex(c) {
             const cv=document.createElement('canvas'); cv.width=16; cv.height=16; const cx=cv.getContext('2d');
             cx.fillStyle='#'+c.toString(16).padStart(6,'0'); cx.fillRect(0,0,16,16);
-            for(let i=0;i<25;i++){ cx.fillStyle=`rgba(0,0,0,${Math.random()*0.15})`; cx.fillRect(Math.random()*16,Math.random()*16,1,1); }
+            for(let i=0;i<25;i++){ cx.fillStyle=`rgba(0,0,0,0.1)`; cx.fillRect(Math.random()*16,Math.random()*16,1,1); }
             const t=new THREE.CanvasTexture(cv); t.magFilter=t.minFilter=THREE.NearestFilter; return t;
         }
 
-        function clearHotbar() {
-            if(confirm("Clear inventory?")) { slot = 0; drawHB(); }
-        }
+        function clearInv() { if(confirm("Clear Hotbar?")) { for(let k in inventory) inventory[k] = (gameMode==='Limitless'?"∞":0); drawHB(); }}
 
         function init() {
             scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             renderer=new THREE.WebGLRenderer({antialias:false}); renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled=true;
-            document.body.appendChild(renderer.domElement);
-            
-            scene.fog=new THREE.FogExp2(0x87CEEB, 0.012);
-            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-            sun=new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(50,100,50); sun.castShadow=true;
-            scene.add(sun); clock=new THREE.Clock();
+            renderer.shadowMap.enabled=true; document.body.appendChild(renderer.domElement);
+            scene.fog=new THREE.FogExp2(0x87CEEB, 0.012); scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            sun=new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(50,100,50); sun.castShadow=true; scene.add(sun);
+            clock=new THREE.Clock();
 
             for(let x=-40;x<=40;x+=2) {
                 for(let z=-40;z<=40;z+=2) {
@@ -93,7 +79,6 @@
                     if(Math.random()<0.001) addB(x,h+1.2,z,"Cranberry",true);
                 }
             }
-            // 1000x1000 Borders
             const wall=new THREE.BoxGeometry(1002,500,2);
             [[0,240,501],[0,240,-501],[501,240,0],[-501,240,0]].forEach((p,i)=>{
                 const w=new THREE.Mesh(wall,mats.Stone); if(i>1)w.rotation.y=Math.PI/2; w.position.set(...p); scene.add(w);
@@ -118,8 +103,21 @@
             window.onkeyup=()=>moveZ=moveX=0;
             document.onmousedown=e=>{
                 if(isMobile)return; ray.setFromCamera(new THREE.Vector2(0,0),camera); const h=ray.intersectObjects(blocks);
-                if(h.length>0){ if(e.button===0){scene.remove(h[0].object); blocks=blocks.filter(b=>b!==h[0].object);}
-                else{ const p=h[0].object.position; const n=h[0].face.normal; addB(p.x+n.x*2,p.y+n.y*2,p.z+n.z*2,ITEMS[slot],true); }}
+                if(h.length>0){
+                    const type = h[0].object.name;
+                    if(e.button===0){ // MINE
+                        if(gameMode==='Survival') inventory[type] = (inventory[type] || 0) + 1;
+                        scene.remove(h[0].object); blocks=blocks.filter(b=>b!==h[0].object); drawHB();
+                    } else { // PLACE
+                        const target = ITEMS[slot];
+                        if(gameMode==='Limitless' || inventory[target] > 0) {
+                            const p=h[0].object.position; const n=h[0].face.normal;
+                            addB(p.x+n.x*2,p.y+n.y*2,p.z+n.z*2,target,true);
+                            if(gameMode==='Survival') inventory[target]--;
+                            drawHB();
+                        }
+                    }
+                }
             };
             if(!isMobile)document.body.onclick=()=>document.body.requestPointerLock();
             document.onmousemove=e=>{if(document.pointerLockElement){yaw-=e.movementX*0.0022; pitch-=e.movementY*0.0022; pitch=Math.max(-1.5,Math.min(1.5,pitch));}};
@@ -127,21 +125,23 @@
 
         function drawHB() { 
             const h=document.getElementById('hb'); h.innerHTML=''; 
-            ITEMS.forEach((it,i)=>h.innerHTML+=`<div class="slot ${i===slot?'active':''}" onclick="slot=${i};drawHB()">${it[0]}</div>`); 
+            ITEMS.forEach((it,i)=>{
+                const count = inventory[it];
+                h.innerHTML+=`<div class="slot ${i===slot?'active':''}" onclick="slot=${i};drawHB()">
+                    ${it[0]}<span class="count">${count > 0 || count === "∞" ? count : ''}</span>
+                </div>`; 
+            }); 
         }
 
         function loop() {
             requestAnimationFrame(loop); const dt=clock.getDelta(); gameTime+=dt;
             const cyc=gameTime%660; const night=cyc>360;
             document.getElementById('clock-ui').innerText=(night?"NIGHT ":"DAY ")+Math.floor((night?660-cyc:360-cyc)/60)+":"+Math.floor((night?660-cyc:360-cyc)%60).toString().padStart(2,'0');
-            
             const sky=night?0x050510:0x87CEEB; scene.background=new THREE.Color(sky); scene.fog.color.setHex(sky);
             sun.intensity=night?0.1:0.8; sun.position.x=Math.cos(gameTime*0.01)*100;
-
             camera.rotation.set(pitch,yaw,0,'YXZ'); camera.translateZ(moveZ); camera.translateX(moveX);
             camera.position.x=Math.max(-498,Math.min(498,camera.position.x)); camera.position.z=Math.max(-498,Math.min(498,camera.position.z));
             if(gameMode==='Survival'){vY-=0.012; camera.position.y+=vY; if(camera.position.y<10){camera.position.y=10;vY=0;}}
-            
             if(night&&Math.random()<0.02){
                 const z=new THREE.Mesh(new THREE.BoxGeometry(1.2,2.6,1.2),mats.Zombie); z.castShadow=true;
                 z.position.set(camera.position.x+(Math.random()-0.5)*60, 10, camera.position.z+(Math.random()-0.5)*60);
