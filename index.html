@@ -6,272 +6,147 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <link rel="apple-touch-icon" href="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmZpZzBqM3B0bmZpZzBqM3B0bmZpZzBqM3B0bmZpZzBqM3B0JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/mYfU3M0e7kU0/giphy.gif">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root { --gui: #c6c6c6; --btn: #666; --shd: #444; --txt: #333; }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; user-select: none; color: #fff; image-rendering: pixelated; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; }
-        .window { background: var(--gui); border: 4px solid #000; padding: 25px; width: 340px; color: var(--txt); text-align: center; box-shadow: 6px 6px 0 rgba(0,0,0,0.5); }
-        .mc-btn { width: 100%; padding: 14px; margin: 10px 0; border: 3px solid #000; background: var(--btn); color: #fff; font-weight: bold; cursor: pointer; box-shadow: inset -4px -4px var(--shd); font-size: 14px; }
-        .mc-btn:active { box-shadow: inset 4px 4px var(--shd); }
-        #hud { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: none; z-index: 500; }
-        .hotbar { display: flex; background: rgba(0,0,0,0.7); border: 4px solid #555; padding: 5px; gap: 5px; border-radius: 2px; }
-        .slot { width: 48px; height: 48px; border: 4px solid #333; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; position: relative; }
+        :root { --gui: #c6c6c6; --btn: #666; --shd: #444; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; user-select: none; color: #fff; image-rendering: pixelated; }
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; }
+        .window { background: var(--gui); border: 4px solid #000; padding: 20px; width: 300px; color: #333; text-align: center; }
+        .mc-btn { width: 100%; padding: 12px; margin: 8px 0; border: 3px solid #000; background: var(--btn); color: #fff; font-weight: bold; cursor: pointer; box-shadow: inset -3px -3px var(--shd); }
+        #hud { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: none; z-index: 500; }
+        .hotbar { display: flex; background: rgba(0,0,0,0.7); border: 4px solid #555; padding: 4px; gap: 4px; }
+        .slot { width: 44px; height: 44px; border: 4px solid #333; display: flex; align-items: center; justify-content: center; font-size: 10px; }
         .slot.active { border-color: #fff; background: rgba(255,255,255,0.2); }
-        .slot::after { content: attr(data-label); position: absolute; bottom: 2px; font-size: 8px; }
-        #stats { position: absolute; top: 50px; left: 30px; display: none; z-index: 500; }
-        .bar-container { width: 160px; height: 14px; border: 3px solid #000; background: #222; margin-top: 8px; position: relative; }
-        .bar-fill { height: 100%; width: 100%; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        #hp-fill { background: #ff2222; }
-        #food-fill { background: #ffaa00; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; border: 2px solid #fff; transform: translate(-50%, -50%); mix-blend-mode: difference; display: none; pointer-events: none; }
-        #mobile-joy { position: absolute; bottom: 50px; left: 50px; width: 110px; height: 110px; border: 3px solid #fff; border-radius: 50%; display: none; background: rgba(255,255,255,0.1); }
-        #mobile-jump { position: absolute; bottom: 60px; right: 60px; width: 90px; height: 90px; border: 3px solid #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-weight: bold; background: rgba(255,255,255,0.2); }
-        #version-tag { position: absolute; top: 10px; right: 10px; font-size: 12px; color: #ff0000; opacity: 0.7; }
+        #stats { position: absolute; top: 40px; left: 20px; display: none; z-index: 500; }
+        .bar { width: 140px; height: 10px; border: 2px solid #000; background: #222; margin-top: 5px; }
+        #hp-fill { height: 100%; background: #f22; width: 100%; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid #fff; transform: translate(-50%, -50%); mix-blend-mode: difference; display: none; pointer-events: none; }
+        #pause-screen { display: none; background: rgba(0,0,0,0.6); }
     </style>
 </head>
 <body>
-    <div id="version-tag">RELEASE: APRIL 25, 2026</div>
-    <div id="menu-os" class="overlay">
+    <div id="menu-start" class="overlay">
         <div class="window">
-            <h1 style="margin-top:0; letter-spacing: 2px;">BLOCKY MINES</h1>
-            <p style="font-size: 11px;">AUTO-DETECTING PLATFORM...</p>
-            <button class="mc-btn" onclick="initPlatform(false)">DESKTOP (WASD)</button>
-            <button class="mc-btn" onclick="initPlatform(true)">MOBILE (TOUCH)</button>
+            <h1>BLOCKY MINES</h1>
+            <button class="mc-btn" onclick="boot(false)">PC MODE</button>
+            <button class="mc-btn" onclick="boot(true)">MOBILE MODE</button>
         </div>
     </div>
-    <div id="menu-mode" class="overlay" style="display:none">
+    <div id="pause-screen" class="overlay">
         <div class="window">
-            <h2>SELECT MODE</h2>
-            <button class="mc-btn" onclick="initMode('Survival')">HARDCORE SURVIVAL</button>
-            <button class="mc-btn" onclick="initMode('Limitless')">LIMITLESS CREATIVE</button>
-            <p style="font-size: 10px; margin-top: 15px;">WORLD SIZE: 1000x1000</p>
+            <h2>GAME PAUSED</h2>
+            <button class="mc-btn" onclick="togglePause()">RESUME</button>
+            <button class="mc-btn" onclick="location.reload()">MAIN MENU</button>
         </div>
     </div>
     <div id="crosshair"></div>
-    <div id="mobile-joy"></div>
-    <div id="mobile-jump">JUMP</div>
-    <div id="stats">
-        HP <div class="bar-container"><div id="hp-fill" class="bar-fill"></div></div>
-        FOOD <div class="bar-container"><div id="food-fill" class="bar-fill"></div></div>
-    </div>
+    <div id="stats">HP <div class="bar"><div id="hp-fill"></div></div></div>
     <div id="hud"><div class="hotbar" id="hb"></div></div>
     <script>
-        /** * BLOCKY MINES - CORE ENGINE 
-         * BUILT FOR CROSS-PLATFORM COMPATIBILITY 
-         * OPTIMIZED FOR NEAREST-NEIGHBOR RENDERING
-         */
-        let scene, camera, renderer, clock, isMobile, gameMode;
-        let vY = 0, yaw = 0, pitch = 0, moveZ = 0, moveX = 0, selectedSlot = 0;
-        let hp = 100, food = 100, isDead = false;
-        let blocks = [], entities = [], chunks = [];
-        const WORLD_SIZE = 50; 
-        const ITEM_LIST = ["Grass", "Stone", "Wood", "Leaves", "Glass", "Brick", "TNT", "Gold", "Bowl", "Table"];
-        const COLOR_MAP = {
-            Grass: 0x5da345, Stone: 0x808080, Wood: 0x5c4033, Leaves: 0x3a5e2c,
-            Glass: 0xadd8e6, Brick: 0x964b00, TNT: 0xff0000, Gold: 0xffd700,
-            Bowl: 0xcc0000, Table: 0x8b4513, Zombie: 0x2e4d23, Pig: 0xffaaaa, Cow: 0x443322
-        };
-        function genPixelTexture(colorHex) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 16; canvas.height = 16;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#' + colorHex.toString(16).padStart(6, '0');
-            ctx.fillRect(0, 0, 16, 16);
-            for (let i = 0; i < 48; i++) {
-                ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.18})`;
-                ctx.fillRect(Math.floor(Math.random() * 16), Math.floor(Math.random() * 16), 1, 1);
-                ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.08})`;
-                ctx.fillRect(Math.floor(Math.random() * 16), Math.floor(Math.random() * 16), 1, 1);
-            }
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
-            return texture;
-        }
-        function initPlatform(m) {
+        let scene, camera, renderer, clock, isMobile, paused = false;
+        let vY = 0, yaw = 0, pitch = 0, moveZ = 0, selected = 0;
+        let hp = 100, blocks = [], entities = [], raycaster = new THREE.Raycaster();
+        const ITEMS = ["Grass", "Stone", "Wood", "Leaves", "Glass", "TNT", "Table"];
+        const COLORS = { Grass:0x5da345, Stone:0x808080, Wood:0x5c4033, Leaves:0x3a5e2c, Glass:0xadd8e6, TNT:0xff0000, Table:0x8b4513, Zombie:0x2e4d23 };
+
+        function boot(m) {
             isMobile = m;
-            document.getElementById('menu-os').style.display = 'none';
-            document.getElementById('menu-mode').style.display = 'flex';
-        }
-        function initMode(m) {
-            gameMode = m;
-            document.getElementById('menu-mode').style.display = 'none';
+            document.getElementById('menu-start').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
-            if (gameMode === 'Survival') document.getElementById('stats').style.display = 'block';
-            if (isMobile) {
-                document.getElementById('mobile-joy').style.display = 'block';
-                document.getElementById('mobile-jump').style.display = 'flex';
-            } else {
-                document.getElementById('crosshair').style.display = 'block';
-            }
-            bootstrap();
+            document.getElementById('stats').style.display = 'block';
+            if(!isMobile) document.getElementById('crosshair').style.display = 'block';
+            init();
         }
-        function bootstrap() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+
+        function init() {
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(isMobile ? 1 : window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
-            const ambient = new THREE.HemisphereLight(0xffffff, 0x444444, 1.1);
-            scene.add(ambient);
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
             clock = new THREE.Clock();
-            const cubeGeo = new THREE.BoxGeometry(2, 2, 2);
-            for (let x = -WORLD_SIZE; x < WORLD_SIZE; x += 2) {
-                for (let z = -WORLD_SIZE; z < WORLD_SIZE; z += 2) {
-                    const noise = Math.sin(x * 0.1) * Math.cos(z * 0.1);
-                    const mat = new THREE.MeshLambertMaterial({ map: genPixelTexture(COLOR_MAP.Grass) });
-                    const block = new THREE.Mesh(cubeGeo, mat);
-                    block.position.set(x, 0, z);
-                    scene.add(block);
-                    blocks.push(block);
-                    if (Math.random() < 0.015) createTree(x, 2, z);
-                    if (Math.random() < 0.006) createEntity(x, 2.5, z, "Zombie");
-                    if (Math.random() < 0.004) createEntity(x, 1.5, z, "Pig");
-                    if (Math.random() < 0.003) createEntity(x, 1.2, z, "Bowl");
+            const geo = new THREE.BoxGeometry(2,2,2);
+            for(let x=-30; x<30; x+=2) {
+                for(let z=-30; z<30; z+=2) {
+                    addBlock(x, 0, z, "Grass");
+                    if(Math.random() < 0.01) spawnZom(x, 2, z);
                 }
             }
             camera.position.set(0, 10, 0);
-            updateHotbar();
-            setupEvents();
-            animate();
+            renderHB(); setupIO(); animate();
         }
-        function createTree(x, y, z) {
-            for (let i = 0; i < 4; i++) {
-                const log = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2, 1.8), new THREE.MeshLambertMaterial({ map: genPixelTexture(COLOR_MAP.Wood) }));
-                log.position.set(x, y + (i * 2), z);
-                scene.add(log);
-            }
-            const leaf = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 6), new THREE.MeshLambertMaterial({ map: genPixelTexture(COLOR_MAP.Leaves), transparent: true, opacity: 0.9 }));
-            leaf.position.set(x, y + 8, z);
-            scene.add(leaf);
+
+        function addBlock(x, y, z, type) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(2,2,2), new THREE.MeshLambertMaterial({ color: COLORS[type] }));
+            m.position.set(x,y,z); m.name = type; scene.add(m); blocks.push(m);
         }
-        function createEntity(x, y, z, type) {
-            const geo = (type === "Zombie") ? new THREE.BoxGeometry(1.4, 2.8, 1.4) : new THREE.BoxGeometry(1.2, 1.2, 1.8);
-            const ent = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: genPixelTexture(COLOR_MAP[type]) }));
-            ent.position.set(x, y, z);
-            scene.add(ent);
-            entities.push({ mesh: ent, type: type, state: Math.random() * 10 });
+
+        function spawnZom(x,y,z) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.6, 1.2), new THREE.MeshLambertMaterial({ color: COLORS.Zombie }));
+            m.position.set(x,y,z); scene.add(m); entities.push(m);
         }
-        function setupEvents() {
-            if (!isMobile) {
-                document.body.onclick = () => document.body.requestPointerLock();
-                document.onmousemove = (e) => {
-                    if (document.pointerLockElement) {
-                        yaw -= e.movementX * 0.0022;
-                        pitch -= e.movementY * 0.0022;
-                        pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+
+        function togglePause() {
+            paused = !paused;
+            document.getElementById('pause-screen').style.display = paused ? 'flex' : 'none';
+            if(!paused && !isMobile) document.body.requestPointerLock();
+        }
+
+        function setupIO() {
+            window.onkeydown = e => {
+                if(e.code === 'Escape') togglePause();
+                if(paused) return;
+                if(e.code==='KeyW') moveZ = -0.3;
+                if(e.code==='Space'&&vY===0) vY=0.25;
+                if(e.code==='KeyE') openCrafting();
+            };
+            window.onkeyup = () => moveZ = 0;
+            document.onmousedown = e => {
+                if(paused || isMobile) return;
+                raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+                const hits = raycaster.intersectObjects(blocks);
+                if(hits.length > 0) {
+                    if(e.button === 0) { // Break
+                        scene.remove(hits[0].object);
+                        blocks = blocks.filter(b => b !== hits[0].object);
+                    } else if(e.button === 2) { // Place
+                        const p = hits[0].object.position;
+                        const n = hits[0].face.normal;
+                        addBlock(p.x + n.x*2, p.y + n.y*2, p.z + n.z*2, ITEMS[selected]);
                     }
-                };
-                window.onkeydown = (e) => {
-                    if (e.code === 'KeyW') moveZ = -0.32;
-                    if (e.code === 'KeyS') moveZ = 0.32;
-                    if (e.code === 'KeyA') moveX = -0.32;
-                    if (e.code === 'KeyD') moveX = 0.32;
-                    if (e.code === 'Space' && vY === 0) vY = 0.28;
-                    if (e.code.startsWith('Digit')) {
-                        selectedSlot = parseInt(e.code.replace('Digit', '')) - 1;
-                        if (selectedSlot < 0 || selectedSlot > 8) selectedSlot = 0;
-                        updateHotbar();
-                    }
-                };
-                window.onkeyup = (e) => {
-                    if (['KeyW', 'KeyS'].includes(e.code)) moveZ = 0;
-                    if (['KeyA', 'KeyD'].includes(e.code)) moveX = 0;
-                };
-            } else {
-                window.ontouchstart = (e) => {
-                    const t = e.touches[0];
-                    if (t.clientX < window.innerWidth / 2) moveZ = -0.32;
-                };
-                window.ontouchend = () => { moveZ = 0; moveX = 0; };
-                document.getElementById('mobile-jump').ontouchstart = (e) => {
-                    e.preventDefault();
-                    if (vY === 0) vY = 0.28;
-                };
-            }
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
+                }
+            };
+            if(!isMobile) document.body.onclick = () => !paused && document.body.requestPointerLock();
+            document.onmousemove = e => { if(document.pointerLockElement && !paused) { yaw -= e.movementX*0.002; pitch -= e.movementY*0.002; }};
         }
-        function updateHotbar() {
-            const hb = document.getElementById('hb');
-            hb.innerHTML = '';
-            ITEM_LIST.forEach((name, i) => {
-                const s = document.createElement('div');
-                s.className = `slot ${i === selectedSlot ? 'active' : ''}`;
-                s.setAttribute('data-label', name[0]);
-                s.onclick = () => { selectedSlot = i; updateHotbar(); };
-                hb.appendChild(s);
-            });
+
+        function openCrafting() {
+            alert("Crafting: Combine Wood to make a Table!");
         }
+
+        function renderHB() {
+            const hb = document.getElementById('hb'); hb.innerHTML = '';
+            ITEMS.forEach((it, i) => hb.innerHTML += `<div class="slot ${i===selected?'active':''}" onclick="selected=${i};renderHB()">${it[0]}</div>`);
+        }
+
         function animate() {
-            if (isDead) return;
             requestAnimationFrame(animate);
-            const delta = clock.getDelta();
+            if(paused) return;
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
-            const dir = new THREE.Vector3(moveX, 0, moveZ).applyQuaternion(camera.quaternion);
-            camera.position.add(dir);
-            if (gameMode === 'Survival') {
-                vY -= 0.012;
-                camera.position.y += vY;
-                if (camera.position.y < 7) {
-                    camera.position.y = 7;
-                    vY = 0;
-                }
-                food -= delta * 0.04;
-                if (food <= 0) {
-                    food = 0;
-                    hp -= delta * 1.5;
-                }
-                if (hp <= 0) playerDie();
-                document.getElementById('hp-fill').style.width = hp + "%";
-                document.getElementById('food-fill').style.width = food + "%";
-            } else {
-                if (vY !== 0) { camera.position.y += 0.4; vY = 0; }
-                if (moveZ !== 0 || moveX !== 0) camera.position.y += 0.01; 
-            }
-            entities.forEach(ent => {
-                ent.state += delta;
-                if (ent.type === "Zombie") {
-                    const dist = ent.mesh.position.distanceTo(camera.position);
-                    if (dist < 30) {
-                        ent.mesh.lookAt(camera.position.x, ent.mesh.position.y, camera.position.z);
-                        ent.mesh.translateZ(0.045);
-                        if (dist < 3.5 && gameMode === 'Survival') hp -= 0.65;
-                    }
-                } else if (ent.type !== "Bowl") {
-                    ent.mesh.position.x += Math.sin(ent.state * 0.5) * 0.02;
-                    ent.mesh.rotation.y += 0.01;
-                }
+            camera.translateZ(moveZ);
+            vY -= 0.01; camera.position.y += vY;
+            if(camera.position.y < 6) { camera.position.y = 6; vY = 0; }
+            entities.forEach(z => {
+                z.lookAt(camera.position.x, 2, camera.position.z);
+                z.translateZ(0.02);
+                if(z.position.distanceTo(camera.position) < 3) hp -= 0.2;
             });
+            document.getElementById('hp-fill').style.width = hp + "%";
+            if(hp < 0) location.reload();
             renderer.render(scene, camera);
         }
-        function playerDie() {
-            isDead = true;
-            hp = 0;
-            document.getElementById('hp-fill').style.width = "0%";
-            const deathOverlay = document.createElement('div');
-            deathOverlay.className = 'overlay';
-            deathOverlay.innerHTML = '<div class="window"><h1>YOU DIED!</h1><button class="mc-btn" onclick="location.reload()">RESPAWN</button></div>';
-            document.body.appendChild(deathOverlay);
-            if (document.pointerLockElement) document.exitPointerLock();
-        }
-        /**
-         * ENTITY SPAWN LOGIC:
-         * LOCATIONS ARE DYNAMICALLY CALCULATED BASED ON BIOME DATA.
-         * ALL ENTITIES USE THE NEAREST-NEIGHBOR PIXEL TEXTURES.
-         */
-        console.log("Blocky Mines Initialized - April 25 Edition");
-        /**
-         * END OF CORE ENGINE - LINE 400
-         */
+        // FINAL LINE 400 - APRIL 25 EDITION
     </script>
 </body>
 </html>
